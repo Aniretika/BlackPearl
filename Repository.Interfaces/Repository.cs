@@ -54,6 +54,7 @@ namespace Repository.Interfaces
             return number;
         }
 
+
         public async Task<int> DeleteAsync(int id)
         {
             SqlCommand query = new SqlCommand(sqlCommandBuilder.Remove(id));
