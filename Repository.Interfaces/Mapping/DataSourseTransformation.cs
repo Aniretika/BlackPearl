@@ -17,48 +17,82 @@ namespace Repository.Interfaces.Mapping
         public Dictionary<string, object> GetDataForInsertQuery(T item)
         {
             var dataQuery = new Dictionary<string, object>();
+            var dataQuery1 = new Dictionary<string, object>();
             string dataQueryDictionaryKey = "";
 
             foreach (var propertyInfo in item.GetType().GetProperties())
             {
-                // need in switch case
                 if ((propertyInfo.GetCustomAttribute(typeof(MyColumn)) as MyColumn) != null)
                 {
                     var column = propertyInfo.GetCustomAttribute(typeof(MyColumn)) as MyColumn;
                     dataQueryDictionaryKey = column.ColumnTitle.ToString();
+                    switch (propertyInfo.PropertyType.Name.ToString())
+                    {
+                        case "String" or "Boolean":
+                            dataQuery.Add(dataQueryDictionaryKey, $"'{propertyInfo.GetValue(item).ToString()}'");
+                            break;
+                        case "DateTime":
+                            var dateTime = (DateTime)propertyInfo.GetValue(item);
+                            dataQuery.Add(dataQueryDictionaryKey, $"'{dateTime.ToString("yyyy-MM-dd")}'");
+                            break;
+                        default:
+                            dataQuery.Add(dataQueryDictionaryKey, propertyInfo.GetValue(item).ToString());
+                            break;
+                    }
+                }
+                else if (propertyInfo.CustomAttributes == null && IsPropertyIsFK(propertyInfo, item))
+                {
+                    GetInsertQueryTree(item);
+                }
+                else if (item.GetType().BaseType.IsAbstract)
+                {
+                    dataQuery.Add("Discriptor", $"'{item.GetType().Name}'");
+                }
 
-                    if (propertyInfo.PropertyType.Name == "String" || propertyInfo.PropertyType.Name == "Boolean")
-                    {
-                        dataQuery.Add(dataQueryDictionaryKey, "\"" + propertyInfo.GetValue(item).ToString() + "\"");
-                    }
-                    else if (propertyInfo.PropertyType.Name == "DateTime")
-                    {
-                        var dateTime = (DateTime)propertyInfo.GetValue(item);
-                        dataQuery.Add(dataQueryDictionaryKey, "\"" + dateTime.ToString("yyyy-MM-dd") + "\"");
-                    }
-                    else if ((propertyInfo.GetCustomAttribute(typeof(MyForeignKeyAttribute)) as MyForeignKeyAttribute) != null)
-                    {
-                        var foreignKeyAttribute = propertyInfo.GetCustomAttribute(typeof(MyForeignKeyAttribute)) as MyForeignKeyAttribute;
-                        var typeOfJoinedTable = foreignKeyAttribute.ForeignKeyType;
-                        object foreignkeyValue = "";
-                        foreach (var primaryKeyInJoinedTable in typeOfJoinedTable.GetType().GetProperties())
-                        {
-                            if ((primaryKeyInJoinedTable.GetCustomAttribute(typeof(MyPrimaryKeyAttribute)) as MyPrimaryKeyAttribute) != null)
-                            {
-                                var primaryKeyOfJoinedTable= primaryKeyInJoinedTable.GetCustomAttribute(typeof(MyPrimaryKeyAttribute)) as MyPrimaryKeyAttribute;
-                                foreignkeyValue = primaryKeyInJoinedTable.GetValue(typeOfJoinedTable);
-                            }
-                        }
+                //checking if fkattribute value excists
+                //propertyInfo.GetFkAttribute if true === GetInsertQueryTree? Can we make sense about not linked fk`s?
+            }
 
-                        dataQuery.Add(foreignKeyAttribute.ColumnTitle, "\"" + foreignkeyValue);
-                    }
-                    else
+            return dataQuery;
+        }
+
+        private static bool IsPropertyIsFK(PropertyInfo propertyInfo, T item)
+        {
+            MyForeignKeyAttribute[] MyAttributes =
+                              (MyForeignKeyAttribute[])Attribute.GetCustomAttributes(item.GetType(), typeof(MyForeignKeyAttribute));
+
+            if (MyAttributes.Any(connectedEntityType => connectedEntityType.ForeignKeyType == propertyInfo.PropertyType))
+            {
+                return true;
+            }
+            else
+            {
+                return false;
+            }
+        }
+
+        public string GetInsertQueryTree(T item)
+        {
+            var dataQuery = new Dictionary<string, object>();
+            string dataQueryDictionaryKey = "";
+
+            dataQuery = GetDataForInsertQuery(item);
+         
+            foreach (var attributeData in item.GetType().CustomAttributes)
+            {
+                if (attributeData.AttributeType == typeof(MyForeignKeyAttribute))
+                {
+                    MyForeignKeyAttribute[] MyAttributes =
+                    (MyForeignKeyAttribute[])Attribute.GetCustomAttributes(item.GetType(), typeof(MyForeignKeyAttribute));
+
+                    for (int i = 0; i < MyAttributes.Length; i++)
                     {
-                        dataQuery.Add(dataQueryDictionaryKey, propertyInfo.GetValue(item).ToString());
+                        Type includedType = MyAttributes[i].ForeignKeyType;
+
                     }
                 }
             }
-            return dataQuery;
+            return dataQueryDictionaryKey;
         }
 
         public string GetTableName(Type type)
@@ -70,7 +104,8 @@ namespace Repository.Interfaces.Mapping
         public string GetTableName()
         {
             var t = typeof(T);
-            var tablename = t.BaseType.GetCustomAttribute(typeof(MyTable)) as MyTable;
+
+            var tablename = t.GetCustomAttribute(typeof(MyTable)) as MyTable;
             return tablename.ColumnTitle;
         }
       

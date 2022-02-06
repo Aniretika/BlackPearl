@@ -10,7 +10,7 @@ namespace MyAttriubutes
         {
             public string ColumnTitle { get; set; }
         }
-    [AttributeUsage(AttributeTargets.All, AllowMultiple = true)]
+    [AttributeUsage(AttributeTargets.Class, AllowMultiple = true)]
     public class MyForeignKeyAttribute : Attribute
     {
         public string ColumnTitle { get; set; }

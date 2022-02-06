@@ -21,7 +21,7 @@ namespace Repository.Interfaces.SqlCommandBuilder
         public string Insert(T item)
         {
             var insertionQueryPreparer = dataSource.GetDataForInsertQuery(item);
-            string stringQuery = $"SELECT {dataSource.GetTableName(item.GetType())} ({ string.Join(", ", insertionQueryPreparer.Keys)}) " +
+            string stringQuery = $"INSERT INTO {dataSource.GetTableName(item.GetType())} ({ string.Join(", ", insertionQueryPreparer.Keys)}) " +
                 $"VALUES ({ string.Join(", ", insertionQueryPreparer.Values)})";
 
             return stringQuery;
@@ -50,7 +50,7 @@ namespace Repository.Interfaces.SqlCommandBuilder
 
         public string FindById(int id)
         {
-            string stringQuery = $"SELECT * FROM {dataSource.GetTableName()} WHERE {dataSource.GetPkField()} IN {id}";
+            string stringQuery = $"SELECT * FROM {dataSource.GetTableName()} WHERE {dataSource.GetPkField()} = {id}";
 
             return stringQuery;
         }

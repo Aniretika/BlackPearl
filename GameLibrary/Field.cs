@@ -7,6 +7,7 @@ using MyAttriubutes;
 namespace GameLibrary
 {
     [MyTable(ColumnTitle = "Field")]
+    [MyForeignKey(typeof(Coordinate), ColumnTitle = "Coordinate_id")]
     public class Field : EntityBase
     {
         public Field(int width, int height)
@@ -20,10 +21,9 @@ namespace GameLibrary
         [MyColumn(ColumnTitle = "Height")]
         public int Height { get; private set; }
 
-        [MyForeignKey(typeof(Coordinate), ColumnTitle="Coordinate_id")] 
         public Coordinate[,] CoordinateField { get; private set; }
 
-        [MyPrimaryKey]
+        [MyPrimaryKey(ColumnTitle = "Field_id")]
         public int ID { get; set; }
 
         public Coordinate this[Quadrant quadrant, uint coordinateXFromQuadrant, uint coordinateYFromQuadrant]

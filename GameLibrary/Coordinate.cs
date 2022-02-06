@@ -2,6 +2,9 @@
 
 namespace GameLibrary
 {
+    [MyTable(ColumnTitle = "Coordinate")]
+    [MyForeignKey(typeof(Field), ColumnTitle = "Field_id")]
+    [MyForeignKey(typeof(Ship), ColumnTitle = "Ship_id")]
     public class Coordinate : EntityBase
     {
         public Coordinate(int xCoord, int yCoord, double distanceFromShipToCenter)
@@ -20,9 +23,6 @@ namespace GameLibrary
 
         [MyColumn(ColumnTitle = "CoordY")]
         public int YCoord { get; set; }
-        [MyForeignKey(typeof(Field), ColumnTitle = "Field_id")]
-
-        [MyForeignKey(typeof(Ship), ColumnTitle = "Ship_id")]
         public Ship Ship { get; set; }
 
         [MyColumn(ColumnTitle = "IsHeadOfTheShip")]

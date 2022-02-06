@@ -10,8 +10,8 @@ namespace UnitOfWorkRepository
 
     public class UnitOfWork: IUnitOfWork
     {
-        private SqlConnection Context { get; set; }
-        private SqlTransaction Transaction { get; set; } 
+        public SqlConnection Context { get; set; }
+        public SqlTransaction Transaction { get; set; } 
         private bool _disposedValue = false; // To detect redundant calls  
 
         public Dictionary<Type, object> Repositories;
@@ -19,20 +19,16 @@ namespace UnitOfWorkRepository
 
         public UnitOfWork(string connectionString)
         {
-            using (Context = new SqlConnection(connectionString))
+            Context = new SqlConnection(connectionString);
+            try
             {
-                try
-                {
-                    Context.Open();
-                    Repositories = new Dictionary<Type, object>();
-                    Console.WriteLine("Connection was executed");
-                    Transaction = Context.BeginTransaction();
-                }
-               catch
-                {
-                    Console.WriteLine("Connection wasn't executed");
-                }
-               
+                Context.Open();
+                Repositories = new Dictionary<Type, object>();
+                Console.WriteLine("Connection was executed");
+            }
+            catch
+            {
+                Console.WriteLine("Connection wasn't executed");
             }
                
         }
@@ -44,7 +40,7 @@ namespace UnitOfWorkRepository
 
             if (disposing)
             {
-                //dispose managed state (managed objects).  
+                Context.Close();
             }
 
             // free unmanaged resources (unmanaged objects) and override a finalizer below.  
@@ -62,7 +58,7 @@ namespace UnitOfWorkRepository
             if (Repositories.Keys.Contains(typeof(TEntity)))
                 return Repositories[typeof(TEntity)] as IRepository<TEntity>;
 
-            var repository = new ReposiroryPattern<TEntity>(Context, Transaction);
+            var repository = new ReposiroryPattern<TEntity>(this.Context, Transaction);
             Repositories.Add(typeof(TEntity), repository);
             return repository;
         }

@@ -4,7 +4,8 @@ using MyAttriubutes;
 
 namespace GameLibrary
 {
-    [MyTable(ColumnTitle = "Ships")]
+    [MyTable(ColumnTitle = "Ship")]
+    [MyForeignKey(typeof(Field), ColumnTitle = "Field_id")]
     public abstract class Ship : EntityBase
     {
         public Ship() { }
@@ -33,7 +34,6 @@ namespace GameLibrary
         [MyColumn(ColumnTitle = "RangeOfAction")]
         public int RangeOfAction { get; set; }
 
-        [MyForeignKey(typeof(Field), ColumnTitle = "Field_id")]
         [MyPrimaryKey(ColumnTitle = "Ship_id")]
         public int ID { get; set; }
 
@@ -96,10 +96,5 @@ namespace GameLibrary
             shipState.Append($"Health: {this.Health}\n");
             return shipState.ToString();
         }
-    }
-
-    public class Test
-    {
-        Ship ship = new Hybrid();
     }
 }

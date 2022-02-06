@@ -17,18 +17,18 @@ namespace Repository.Interfaces
 {
     public class ReposiroryPattern<T> : IRepository<T> where T : class
     {
-        protected SqlConnection _context;
-        protected SqlTransaction _transaction;
+        private SqlConnection Context;
+        private SqlTransaction Transaction;
 
-        public SqlCommandBuilder<T> sqlCommandBuilder = new SqlCommandBuilder<T>();
+        private SqlCommandBuilder<T> sqlCommandBuilder = new SqlCommandBuilder<T>();
 
         public ReposiroryPattern()
         {
         }
         public ReposiroryPattern(SqlConnection context, SqlTransaction transaction)
         {
-            this._context = context;
-            this._transaction = transaction;
+            this.Context = context;
+            this.Transaction = transaction;
         }
 
         //Use Task-based asynchronous pattern
@@ -37,31 +37,40 @@ namespace Repository.Interfaces
         //асинхронный метод может закончится и синхронно. В случае, если вызван этот метод, его продолжение будет выполнено асинхронно
         //Task.WhenAll(..) — комбинатор, принимает IEnumerable/params объектов задач
         //и возвращает объект задачи, который завершиться по завершении всех переданных задач
-        public async Task<int> AddAsync(T item)
-        {
-            SqlCommand query = new(sqlCommandBuilder.Insert(item));
+        //public async Task<int> AddAsync(T item)
+        //{
+        //    SqlCommand query = new(sqlCommandBuilder.Insert(item), Context);
            
-            int number = await query.ExecuteNonQueryAsync();
+        //    int number = await query.ExecuteNonQueryAsync();
+        //    Console.WriteLine($"Insert {number} rows");
+        //    return number;
+        //}
+
+        public int Add(T item)
+        {
+            SqlCommand query = new(sqlCommandBuilder.Insert(item), Context);
+
+            int number = query.ExecuteNonQuery();
             Console.WriteLine($"Insert {number} rows");
             return number;
         }
 
-        public async Task<int> UpdateAsync(T item)
-        {
-            SqlCommand query = new SqlCommand(sqlCommandBuilder.Update(item));
+        //public async Task<int> UpdateAsync(T item)
+        //{
+        //    SqlCommand query = new SqlCommand(sqlCommandBuilder.Update(item));
 
-            int number = await query.ExecuteNonQueryAsync();
-            return number;
-        }
+        //    int number = await query.ExecuteNonQueryAsync();
+        //    return number;
+        //}
 
 
-        public async Task<int> DeleteAsync(int id)
-        {
-            SqlCommand query = new SqlCommand(sqlCommandBuilder.Remove(id));
+        //public async Task<int> DeleteAsync(int id)
+        //{
+        //    SqlCommand query = new SqlCommand(sqlCommandBuilder.Remove(id));
 
-            int number = await query.ExecuteNonQueryAsync();
-            return number;
-        }
+        //    int number = await query.ExecuteNonQueryAsync();
+        //    return number;
+        //}
 
         public T Include(T item, Type joinedType)
         {
@@ -74,33 +83,51 @@ namespace Repository.Interfaces
 
         public T GetItem(int id)
         {
-            SqlCommand query = new(sqlCommandBuilder.FindById(id));
+            SqlCommand query = new(sqlCommandBuilder.FindById(id), Context);
 
-            SqlDataReader reader = query.ExecuteReader();
-
-            if (reader.HasRows)
+            using (SqlDataReader reader = query.ExecuteReader())
             {
-                while (reader.Read())
+                var y = reader.GetType();
+                if (reader.HasRows)
                 {
-                    return MapDataToBusinessEntity(reader);
+                    while (reader.Read())
+                    {
+                        string typeInheritanceClass = reader.GetValue(reader.GetOrdinal("Discriptor")).ToString();
+                        return MapDataToBusinessEntity(reader, typeInheritanceClass);
+                    }
                 }
             }
-            reader.Close();
+            //return not excecced value
             return (T)Activator.CreateInstance(typeof(T));
         }
 
-        private static T MapDataToBusinessEntity(IDataReader dr)
+        private static T MapDataToBusinessEntity(IDataReader dr, string typeInheritanceClass)
         {
             Type businessEntityType = typeof(T);
-            T newObject = (T)Activator.CreateInstance(typeof(T));
+            string assemblyName = businessEntityType.Assembly.GetName().Name;
+            string fullNameInheritanceClass = $"{businessEntityType.Namespace.ToString()}.{typeInheritanceClass}";
+            T newObject;
+
+            //YourType your = (YourType)Activator.CreateInstance("AssemblyName", "NameSpace.MyClass");
+            if (businessEntityType.IsAbstract)
+            {
+                var o = Activator.CreateInstance(assemblyName, fullNameInheritanceClass);
+                var t = o.Unwrap();
+                var type = t.GetType();
+                newObject = t as T;
+            }
+            else
+            {
+                newObject = (T)Activator.CreateInstance(typeof(T));
+            }
+          
             Hashtable hashtable = new Hashtable();
             PropertyInfo[] properties = businessEntityType.GetProperties();
             foreach (PropertyInfo info in properties)
             {
                 hashtable[info.Name.ToUpper()] = info;
             }
-            while (dr.Read())
-            {
+
                 
                 for (int index = 0; index < dr.FieldCount; index++)
                 {
@@ -110,10 +137,23 @@ namespace Repository.Interfaces
                     {
                         info.SetValue(newObject, dr.GetValue(index), null);
                     }
-                }
             }
-            dr.Close();
+            //dr.Close();
             return newObject;
+        }
+
+        public int Update(T item)
+        {
+            throw new NotImplementedException();
+        }
+
+        public int Delete(int id)
+        {
+            SqlCommand query = new SqlCommand(sqlCommandBuilder.Remove(id), Context);
+
+            int number = query.ExecuteNonQuery();
+            Console.WriteLine($"Insert {number} rows");
+            return number;
         }
     }
    
