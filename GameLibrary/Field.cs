@@ -6,24 +6,27 @@ using MyAttriubutes;
 
 namespace GameLibrary
 {
-    [MyTable(ColumnTitle = "Field")]
-    [MyForeignKey(typeof(Coordinate), ColumnTitle = "Coordinate_id")]
+    [TableDefinition(ColumnTitle = "Field")]
+   
     public class Field : EntityBase
     {
+        public Field() { }
+
         public Field(int width, int height)
         {
             this.DefineFieldSize(width, height);
         }
 
-        [MyColumn(ColumnTitle = "Width")]
+        [ColumnDefinition(ColumnTitle = "Width")]
         public int Width { get; private set; }
 
-        [MyColumn(ColumnTitle = "Height")]
+        [ColumnDefinition(ColumnTitle = "Height")]
         public int Height { get; private set; }
 
+        [FKRelationship(typeof(Coordinate), ColumnTitle = "Coordinate_id")]
         public Coordinate[,] CoordinateField { get; private set; }
 
-        [MyPrimaryKey(ColumnTitle = "Field_id")]
+        [PKRelationship(ColumnTitle = "Field_id")]
         public int ID { get; set; }
 
         public Coordinate this[Quadrant quadrant, uint coordinateXFromQuadrant, uint coordinateYFromQuadrant]
@@ -83,10 +86,12 @@ namespace GameLibrary
             {
                 for (int j = 0; j < this.Height; j++)
                 {
+
                     if (this.CoordinateField[i, j].IsHeadOfTheShip)
                     {
                         shipHeadCoordinates.Add(this.CoordinateField[i, j]);
                     }
+
                 }
             }
 
@@ -348,7 +353,28 @@ namespace GameLibrary
 
         private double CalculateDistanceShipToCenter(int coordinateX, int coordinateY)
         {
-            return Math.Sqrt(System.Math.Pow(coordinateX - this.CenterWidth(), 2) + System.Math.Pow(coordinateY - this.CenterHeight(), 2));
+            int cathetusWidth = 0, cathetusHeight = 0;
+            if (coordinateX >= CenterWidth() && coordinateY >= CenterHeight()) // 4
+            {
+                cathetusWidth = -coordinateY - 1 + CenterHeight();
+                cathetusHeight = -coordinateX - 1 + this.CenterWidth();
+            }
+            else if (coordinateX >= CenterWidth() && coordinateY < CenterHeight()) // 2
+            {
+                cathetusWidth = coordinateY - this.CenterHeight();
+                cathetusHeight = coordinateX - CenterWidth();
+            }
+            else if (coordinateX < CenterWidth() && coordinateY >= CenterHeight()) // 3
+            {
+                cathetusWidth = -coordinateY - 1 + CenterHeight();
+                cathetusHeight = coordinateX - CenterWidth();
+            }
+            else if (coordinateX < CenterWidth() && coordinateY < CenterHeight()) // 1
+            {
+                cathetusHeight = -coordinateX - 1 + this.CenterWidth();
+                cathetusWidth = coordinateY - this.CenterHeight();
+            }
+            return Math.Sqrt(System.Math.Pow(cathetusWidth, 2) + System.Math.Pow(cathetusHeight, 2));
         }
 
         private int CenterWidth()
