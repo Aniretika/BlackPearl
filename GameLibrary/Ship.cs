@@ -4,8 +4,8 @@ using MyAttriubutes;
 
 namespace GameLibrary
 {
-    [MyTable(ColumnTitle = "Ship")]
-    [MyForeignKey(typeof(Field), ColumnTitle = "Field_id")]
+    [TableDefinition(ColumnTitle = "Ship")]
+    [FKRelationship(typeof(Field), ColumnTitle = "Field_id")]
     public abstract class Ship : EntityBase
     {
         public Ship() { }
@@ -22,19 +22,19 @@ namespace GameLibrary
         //[Column(Storage = "Ship_id", DbType = "INT NOT NULL", CanBeNull = false)]
         //public override int ID { get; set; }
 
-        [MyColumn(ColumnTitle = "Speed")]
+        [ColumnDefinition(ColumnTitle = "Speed")]
         public int Speed { get; set; }
 
-        [MyColumn(ColumnTitle = "LengthShip")]
+        [ColumnDefinition(ColumnTitle = "LengthShip")]
         public int Length { get; set; }
 
-        [MyColumn(ColumnTitle = "Health")]
+        [ColumnDefinition(ColumnTitle = "Health")]
         public int Health { get; set; }
 
-        [MyColumn(ColumnTitle = "RangeOfAction")]
+        [ColumnDefinition(ColumnTitle = "RangeOfAction")]
         public int RangeOfAction { get; set; }
 
-        [MyPrimaryKey(ColumnTitle = "Ship_id")]
+        [PKRelationship(ColumnTitle = "Ship_id")]
         public int ID { get; set; }
 
         public static bool operator ==(Ship ship1, Ship ship2)

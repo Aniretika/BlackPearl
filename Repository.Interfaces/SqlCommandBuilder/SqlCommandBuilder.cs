@@ -10,6 +10,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using MyAttriubutes;
 using System.Linq.Expressions;
+using System.Collections;
 
 namespace Repository.Interfaces.SqlCommandBuilder
 {
@@ -17,14 +18,92 @@ namespace Repository.Interfaces.SqlCommandBuilder
     {
         private DataSourceTransormation<T> dataSource = new DataSourceTransormation<T>();
 
-        //rewrite insert!!!!!!! + method ForeignKeysChecker 
-        public string Insert(T item)
-        {
-            var insertionQueryPreparer = dataSource.GetDataForInsertQuery(item);
-            string stringQuery = $"INSERT INTO {dataSource.GetTableName(item.GetType())} ({ string.Join(", ", insertionQueryPreparer.Keys)}) " +
-                $"VALUES ({ string.Join(", ", insertionQueryPreparer.Values)})";
+        public string Insert(object item) => QueryPreparer(InsertWrapper, item);
+        public string Update(object item) => QueryPreparer(UpdateWrapper, item);
 
+        private string QueryPreparer(Func<object, string> queryWrapper, object obj)//func
+        {
+            StringBuilder stringQuery = new StringBuilder();
+            stringQuery.Append(queryWrapper(obj));
+            stringQuery.Append(GetNestedObjects(queryWrapper, obj));
+
+            return stringQuery.ToString();
+        }
+
+        private string GetNestedObjects(Func<object, string> queryWrapper, object obj)
+        {
+            StringBuilder stringQuery = new StringBuilder();
+            object nestedObject = GetObjectByFk(obj);
+            if (nestedObject != null)
+            {
+                if ((nestedObject.GetType() is IEnumerable))
+                {
+                    var collectionOfNestedObject = nestedObject as IEnumerable;
+                    foreach (var nestedObjectInstance in collectionOfNestedObject)
+                    {
+                        stringQuery.Append(queryWrapper(nestedObjectInstance));
+                        if (GetObjectByFk(nestedObjectInstance) != null)
+                        {
+                            stringQuery.Append(GetNestedObjects(queryWrapper, nestedObjectInstance));
+                        }
+                    }
+                }
+                else if (nestedObject.GetType().IsArray)
+                {
+                    var array = (IEnumerable)nestedObject;
+                    foreach (var nestedObjectExemplar in array)
+                    {
+                        stringQuery.Append(queryWrapper(nestedObjectExemplar));
+
+                        if (GetObjectByFk(nestedObjectExemplar) != null)
+                        {
+                            stringQuery.Append(GetNestedObjects(queryWrapper, nestedObjectExemplar));
+                        }
+                    }
+                }
+                else
+                {
+                    stringQuery.Append(queryWrapper(nestedObject));
+                }
+            }
+            return stringQuery.ToString();
+        }
+        private string InsertWrapper(object insertingInstance)
+        {
+            var queryPreparer = dataSource.GetDataForInsertQuery(insertingInstance);
+
+            string stringQuery = $"INSERT INTO {dataSource.GetTableName(insertingInstance.GetType())} ({ string.Join(", ", queryPreparer.Keys)}) " +
+    $"VALUES ({ string.Join(", ", queryPreparer.Values)}) ";
             return stringQuery;
+        }
+
+        private string UpdateWrapper(object updatingInstance)
+        {
+            var queryPreparer = dataSource.GetDataForInsertQuery(updatingInstance);
+            string updateQueryPreparer = "";
+            foreach (var insertionQueryPreparer in dataSource.GetDataForInsertQuery(updatingInstance))
+            {
+                updateQueryPreparer += $"({string.Join(",", insertionQueryPreparer.Key)} = {insertionQueryPreparer.Value}";
+            }
+            //throw new Exception("Insert Error: 
+            // No Data Source was provided in the " + dataObject.GetType().Name + 
+            //". Kindly review the class definition or the data mapper definition.");
+            string stringQuery = $"UPDATE {dataSource.GetTableName()} " +
+                $"SET {updateQueryPreparer}" +
+                $"WHERE {dataSource.GetPkField()} = {dataSource.GetObjectId(queryPreparer)}";
+            return stringQuery;
+        }
+        private object GetObjectByFk(object item)
+        {
+            foreach (var propertyInfo in item.GetType().GetProperties())
+            {
+                if ((propertyInfo.GetCustomAttribute(typeof(FKRelationshipAttribute)) as FKRelationshipAttribute) != null)
+                {
+                    return propertyInfo.GetValue(item);
+                }
+            }
+          
+            return null;
         }
 
         public string Include(T item, Type joinedType)
@@ -62,33 +141,18 @@ namespace Repository.Interfaces.SqlCommandBuilder
             return stringQuery;
         }
 
-        public string Update(T item)
-        {
-            string updateQueryPreparer = "";
-            foreach (var insertionQueryPreparer in dataSource.GetDataForInsertQuery(item))
-            {
-                updateQueryPreparer += $"({string.Join(",", insertionQueryPreparer.Key)} = {insertionQueryPreparer.Value}";
-            }
-           //throw new Exception("Insert Error: 
-           // No Data Source was provided in the " + dataObject.GetType().Name + 
-           //". Kindly review the class definition or the data mapper definition.");
-            string stringQuery = $"UPDATE {dataSource.GetTableName()} " +
-                $"SET {updateQueryPreparer}" +
-                $"WHERE {dataSource.GetPkField()} = {dataSource.GetObjectId(item)}";
-            return stringQuery;
-        }
-
         private bool JoinRelationChecker(T item, Type joinedType)
         {
             var properties = item.GetType().GetProperties();
-            MyForeignKeyAttribute keyAttribute = new MyForeignKeyAttribute(joinedType);
+            FKRelationshipAttribute keyAttribute = new FKRelationshipAttribute(joinedType);
             foreach (var propertyInfo in properties)
             {
-                keyAttribute = propertyInfo.GetCustomAttribute(typeof(MyForeignKeyAttribute)) as MyForeignKeyAttribute;
+                keyAttribute = propertyInfo.GetCustomAttribute(typeof(FKRelationshipAttribute)) as FKRelationshipAttribute;
 
             }
             return keyAttribute.ForeignKeyType == joinedType;
         }
+
 
         //public bool JoinRelationChecker(T item)
         //{

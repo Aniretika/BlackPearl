@@ -92,13 +92,41 @@ namespace Repository.Interfaces
                 {
                     while (reader.Read())
                     {
-                        string typeInheritanceClass = reader.GetValue(reader.GetOrdinal("Discriptor")).ToString();
-                        return MapDataToBusinessEntity(reader, typeInheritanceClass);
+                        string typeInheritanceClass = "";
+                        try
+                        {
+                            typeInheritanceClass = reader.GetValue(reader.GetOrdinal("Discriptor")).ToString();
+                            return MapDataToBusinessEntity(reader, typeInheritanceClass);
+                        }
+                        catch
+                        {
+                            return MapDataToBusinessEntity(reader, "");
+                        }
                     }
                 }
             }
             //return not excecced value
             return (T)Activator.CreateInstance(typeof(T));
+        }
+
+        private static string ConvertDBNamingToBusinessEntity(string dbFieldNameByIndex, T item)
+        {
+            if (item.GetType().GetCustomAttributes().Any(currentAttribute=> currentAttribute
+            .GetType()==typeof(PKRelationshipAttribute)))
+            {
+
+            }
+            else if(item.GetType().GetCustomAttributes().Any(currentAttribute => currentAttribute
+            .GetType() == typeof(FKRelationshipAttribute)))
+            {
+
+            }
+            else if (item.GetType().GetCustomAttributes().Any(currentAttribute => currentAttribute
+             .GetType() == typeof(ColumnDefinition)))
+            {
+
+            }
+            return "";
         }
 
         private static T MapDataToBusinessEntity(IDataReader dr, string typeInheritanceClass)
@@ -107,18 +135,16 @@ namespace Repository.Interfaces
             string assemblyName = businessEntityType.Assembly.GetName().Name;
             string fullNameInheritanceClass = $"{businessEntityType.Namespace.ToString()}.{typeInheritanceClass}";
             T newObject;
-
-            //YourType your = (YourType)Activator.CreateInstance("AssemblyName", "NameSpace.MyClass");
+            // T newObject = CreateNewEntity(Type businessEntityType);
             if (businessEntityType.IsAbstract)
             {
-                var o = Activator.CreateInstance(assemblyName, fullNameInheritanceClass);
-                var t = o.Unwrap();
-                var type = t.GetType();
-                newObject = t as T;
+                var newGeneratedObjectReference = Activator.CreateInstance(assemblyName, fullNameInheritanceClass);
+                newObject = newGeneratedObjectReference.Unwrap() as T;
             }
             else
             {
-                newObject = (T)Activator.CreateInstance(typeof(T));
+                var newGeneratedObjectReference = Activator.CreateInstance(assemblyName, businessEntityType.FullName.ToString());
+                newObject = newGeneratedObjectReference.Unwrap() as T;
             }
           
             Hashtable hashtable = new Hashtable();
@@ -127,18 +153,23 @@ namespace Repository.Interfaces
             {
                 hashtable[info.Name.ToUpper()] = info;
             }
+            for (int indexField = 0; indexField < dr.FieldCount; indexField++)
+            {
+                //column title matching with data layer
 
-                
-                for (int index = 0; index < dr.FieldCount; index++)
+                var t = dr.GetName(indexField);
+                ConvertDBNamingToBusinessEntity(t, newObject);
+                PropertyInfo info = (PropertyInfo)
+                                    hashtable[dr.GetName(indexField).ToUpper()];
+                if ((info != null) && info.CanWrite)
                 {
-                    PropertyInfo info = (PropertyInfo)
-                                        hashtable[dr.GetName(index).ToUpper()];
-                    if ((info != null) && info.CanWrite)
-                    {
-                        info.SetValue(newObject, dr.GetValue(index), null);
-                    }
+                    info.SetValue(newObject, dr.GetValue(indexField), null);
+                }
+                else if ((info != null) && info.CustomAttributes.Any(u => u.AttributeType == typeof(PKRelationshipAttribute)))
+                {
+                    info.SetValue(newObject, dr.GetValue(indexField));
+                }
             }
-            //dr.Close();
             return newObject;
         }
 

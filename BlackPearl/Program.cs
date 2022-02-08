@@ -12,8 +12,9 @@ namespace BlackPearl
         public static void Main()
         {
             Field field = new Field(8, 8);
+            //Field field = new Field(2, 2);
+            Ship shooter = new Fighter(1, 2, 2);
 
-            Ship shooter = new Fighter(2, 2, 2);
             Ship hybrid = new Hybrid(3, 4, 3);
             Ship repairer = new Repairer(3, 1, 2);
 
@@ -21,7 +22,7 @@ namespace BlackPearl
             Ship hybrid1 = new Hybrid(4, 4, 2);
 
             Ship repairer1 = new Repairer(3, 1, 2);
-            field.SetShip(Quadrant.Third, 2, 0, shooter, Direction.Right);
+            field.SetShip(Quadrant.Fourth, 0, 0, shooter, Direction.Right);
             field.SetShip(Quadrant.First, 3, 1, hybrid, Direction.Down);
             field.SetShip(Quadrant.Fourth, 0, 2, repairer, Direction.Down);
 
@@ -30,8 +31,8 @@ namespace BlackPearl
 
             field.SetShip(Quadrant.Fourth, 0, 2, repairer1, Direction.Down);
 
-            // System.Console.WriteLine(field.FieldCondition());
-            // System.Console.WriteLine(field.ToString());
+            System.Console.WriteLine(field.FieldCondition());
+            System.Console.WriteLine(field.ToString());
 
 
             //string connectionString = @"Data Source =.\SOROKASQL; " +
@@ -45,18 +46,18 @@ namespace BlackPearl
             //    SqlCommand command = new SqlCommand(sqlExpression, connection);
             //    command.ExecuteNonQuery();
             //}
-            
+
             using (var unitOfWork = new UnitOfWork
                 (@"Data Source=.\SOROKASQL;" +
                 "Initial Catalog=SeaFight;" +
                 "User ID=SuperUser; Integrated Security=true"))
             {
 
-                //unitOfWork.GetRepository<Field>().Add(field);
-                //unitOfWork.GetRepository<Ship>().Add(repairer1);
+                unitOfWork.GetRepository<Field>().Add(field);
+               // unitOfWork.GetRepository<Ship>().Add(hybrid);
+                //unitOfWork.GetRepository<Ship>().Add(repairer);
                 //unitOfWork.GetRepository<Ship>().Delete(1);
-                var result = unitOfWork.GetRepository<Ship>().GetItem(2);
-                Console.WriteLine(result.ToString());
+                // var result = unitOfWork.GetRepository<Field>().GetItem(15);
             }
 
 

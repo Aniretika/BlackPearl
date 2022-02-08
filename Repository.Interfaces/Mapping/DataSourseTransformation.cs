@@ -1,5 +1,6 @@
 ﻿using MyAttriubutes;
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
@@ -9,57 +10,60 @@ using System.Text;
 namespace Repository.Interfaces.Mapping
 {
     //Checks and generate join relation
-
-
     public class DataSourceTransormation<T> where T : class
     {
         public DataSourceTransormation() { }
-        public Dictionary<string, object> GetDataForInsertQuery(T item)
+        public Dictionary<string, object> GetDataForInsertQuery(object objectInstance)
         {
             var dataQuery = new Dictionary<string, object>();
-            var dataQuery1 = new Dictionary<string, object>();
             string dataQueryDictionaryKey = "";
 
-            foreach (var propertyInfo in item.GetType().GetProperties())
+            foreach (var propertyInfo in objectInstance.GetType().GetProperties())
             {
-                if ((propertyInfo.GetCustomAttribute(typeof(MyColumn)) as MyColumn) != null)
+                if ((propertyInfo.GetCustomAttribute(typeof(ColumnDefinition)) as ColumnDefinition) != null)
                 {
-                    var column = propertyInfo.GetCustomAttribute(typeof(MyColumn)) as MyColumn;
+                    var column = propertyInfo.GetCustomAttribute(typeof(ColumnDefinition)) as ColumnDefinition;
                     dataQueryDictionaryKey = column.ColumnTitle.ToString();
+                    //сравнивать type
                     switch (propertyInfo.PropertyType.Name.ToString())
                     {
                         case "String" or "Boolean":
-                            dataQuery.Add(dataQueryDictionaryKey, $"'{propertyInfo.GetValue(item).ToString()}'");
+                            dataQuery.Add(dataQueryDictionaryKey, $"'{propertyInfo.GetValue(objectInstance).ToString()}'");
                             break;
                         case "DateTime":
-                            var dateTime = (DateTime)propertyInfo.GetValue(item);
+                            var dateTime = (DateTime)propertyInfo.GetValue(objectInstance);
                             dataQuery.Add(dataQueryDictionaryKey, $"'{dateTime.ToString("yyyy-MM-dd")}'");
                             break;
                         default:
-                            dataQuery.Add(dataQueryDictionaryKey, propertyInfo.GetValue(item).ToString());
+                            dataQuery.Add(dataQueryDictionaryKey, propertyInfo.GetValue(objectInstance).ToString());
                             break;
                     }
                 }
-                else if (propertyInfo.CustomAttributes == null && IsPropertyIsFK(propertyInfo, item))
+                else if (objectInstance.GetType().BaseType.GetTypeInfo().IsAbstract)
                 {
-                    GetInsertQueryTree(item);
+                    dataQuery.Add("Discriptor", $"'{objectInstance.GetType().Name}'");
                 }
-                else if (item.GetType().BaseType.IsAbstract)
-                {
-                    dataQuery.Add("Discriptor", $"'{item.GetType().Name}'");
-                }
-
-                //checking if fkattribute value excists
-                //propertyInfo.GetFkAttribute if true === GetInsertQueryTree? Can we make sense about not linked fk`s?
             }
 
             return dataQuery;
         }
+        private object GetObjectByFk(T item)
+        {
+            foreach (var propertyInfo in item.GetType().GetProperties())
+            {
+                if ((propertyInfo.GetCustomAttribute(typeof(FKRelationshipAttribute)) as FKRelationshipAttribute) != null)
+                {
+                    return propertyInfo.GetValue(item);
+                }
+            }
+
+            return null;
+        }
 
         private static bool IsPropertyIsFK(PropertyInfo propertyInfo, T item)
         {
-            MyForeignKeyAttribute[] MyAttributes =
-                              (MyForeignKeyAttribute[])Attribute.GetCustomAttributes(item.GetType(), typeof(MyForeignKeyAttribute));
+            FKRelationshipAttribute[] MyAttributes =
+                              (FKRelationshipAttribute[])Attribute.GetCustomAttributes(item.GetType(), typeof(FKRelationshipAttribute));
 
             if (MyAttributes.Any(connectedEntityType => connectedEntityType.ForeignKeyType == propertyInfo.PropertyType))
             {
@@ -71,41 +75,19 @@ namespace Repository.Interfaces.Mapping
             }
         }
 
-        public string GetInsertQueryTree(T item)
-        {
-            var dataQuery = new Dictionary<string, object>();
-            string dataQueryDictionaryKey = "";
-
-            dataQuery = GetDataForInsertQuery(item);
-         
-            foreach (var attributeData in item.GetType().CustomAttributes)
-            {
-                if (attributeData.AttributeType == typeof(MyForeignKeyAttribute))
-                {
-                    MyForeignKeyAttribute[] MyAttributes =
-                    (MyForeignKeyAttribute[])Attribute.GetCustomAttributes(item.GetType(), typeof(MyForeignKeyAttribute));
-
-                    for (int i = 0; i < MyAttributes.Length; i++)
-                    {
-                        Type includedType = MyAttributes[i].ForeignKeyType;
-
-                    }
-                }
-            }
-            return dataQueryDictionaryKey;
-        }
-
         public string GetTableName(Type type)
         {
-            MyTable MyAttribute =
-              (MyTable)Attribute.GetCustomAttribute(type, typeof(MyTable));
+            var t = type;
+  
+            TableDefinition MyAttribute =
+              (TableDefinition)Attribute.GetCustomAttribute(type, typeof(TableDefinition));
             return MyAttribute.ColumnTitle;
         }
         public string GetTableName()
         {
             var t = typeof(T);
 
-            var tablename = t.GetCustomAttribute(typeof(MyTable)) as MyTable;
+            var tablename = t.GetCustomAttribute(typeof(TableDefinition)) as TableDefinition;
             return tablename.ColumnTitle;
         }
       
@@ -114,23 +96,23 @@ namespace Repository.Interfaces.Mapping
             var itemType = typeof(T);
             foreach (var propertyInfo in itemType.GetProperties())
             {
-                if ((propertyInfo.GetCustomAttribute(typeof(MyPrimaryKeyAttribute)) as MyPrimaryKeyAttribute) != null)
+                if ((propertyInfo.GetCustomAttribute(typeof(PKRelationshipAttribute)) as PKRelationshipAttribute) != null)
                 {
-                    var pkAttribute = propertyInfo.GetCustomAttribute(typeof(MyPrimaryKeyAttribute)) as MyPrimaryKeyAttribute;
+                    var pkAttribute = propertyInfo.GetCustomAttribute(typeof(PKRelationshipAttribute)) as PKRelationshipAttribute;
 
                     return pkAttribute.ColumnTitle;
                 }
             }
             return "";
         }
-        public int GetObjectId(T item)
+        public int GetObjectId(object objectInstance)
         {
-            var itemType = item.GetType();
+            var itemType = objectInstance.GetType();
             foreach (var propertyInfo in itemType.GetProperties())
             {
-                if ((propertyInfo.GetCustomAttribute(typeof(MyPrimaryKeyAttribute)) as MyPrimaryKeyAttribute) != null)
+                if ((propertyInfo.GetCustomAttribute(typeof(PKRelationshipAttribute)) as PKRelationshipAttribute) != null)
                 {
-                    var propertyId = propertyInfo.GetValue(item);
+                    var propertyId = propertyInfo.GetValue(objectInstance);
                     return Convert.ToInt32(propertyId);
                 }
             }
@@ -141,10 +123,10 @@ namespace Repository.Interfaces.Mapping
             Type itemType = typeof(T);
             foreach (var propertyInfo in itemType.GetProperties())
             {
-                if ((propertyInfo.GetCustomAttribute(typeof(MyForeignKeyAttribute)) as MyForeignKeyAttribute) != null
-                    && ((propertyInfo.GetCustomAttribute(typeof(MyForeignKeyAttribute)) as MyForeignKeyAttribute).ForeignKeyType == joinedType))
+                if ((propertyInfo.GetCustomAttribute(typeof(FKRelationshipAttribute)) as FKRelationshipAttribute) != null
+                    && ((propertyInfo.GetCustomAttribute(typeof(FKRelationshipAttribute)) as FKRelationshipAttribute).ForeignKeyType == joinedType))
                 {
-                    MyForeignKeyAttribute keyAttribute = propertyInfo.GetCustomAttribute(typeof(MyForeignKeyAttribute)) as MyForeignKeyAttribute;
+                    FKRelationshipAttribute keyAttribute = propertyInfo.GetCustomAttribute(typeof(FKRelationshipAttribute)) as FKRelationshipAttribute;
                     return keyAttribute.ColumnTitle;
                 }
                 else
