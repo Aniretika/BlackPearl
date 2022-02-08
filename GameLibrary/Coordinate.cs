@@ -2,9 +2,8 @@
 
 namespace GameLibrary
 {
-    [MyTable(ColumnTitle = "Coordinate")]
-    [MyForeignKey(typeof(Field), ColumnTitle = "Field_id")]
-    [MyForeignKey(typeof(Ship), ColumnTitle = "Ship_id")]
+    [TableDefinition(ColumnTitle = "Coordinate")]
+    [FKRelationship(typeof(Field), ColumnTitle = "Field_id")]
     public class Coordinate : EntityBase
     {
         public Coordinate(int xCoord, int yCoord, double distanceFromShipToCenter)
@@ -15,20 +14,22 @@ namespace GameLibrary
             this.Ship = null;
         }
 
-        [MyPrimaryKey(ColumnTitle = "Coordinate_id")]
+        [PKRelationship(ColumnTitle = "Coordinate_id")]
         public int ID { get; set; }
 
-        [MyColumn(ColumnTitle = "CoordX")]
+        [ColumnDefinition(ColumnTitle = "CoordX")]
         public int XCoord { get; set; }
 
-        [MyColumn(ColumnTitle = "CoordY")]
+        [ColumnDefinition(ColumnTitle = "CoordY")]
         public int YCoord { get; set; }
+
+        [FKRelationship(typeof(Ship), ColumnTitle = "Ship_id")]
         public Ship Ship { get; set; }
 
-        [MyColumn(ColumnTitle = "IsHeadOfTheShip")]
-        internal bool IsHeadOfTheShip { get; set; }
+        [ColumnDefinition(ColumnTitle = "IsHeadOfTheShip")]
+        public bool IsHeadOfTheShip { get; set; }
 
-        [MyColumn(ColumnTitle = "DistanceFromShipToCenter")]
-        internal double DistanceFromShipToCenter { get; set; }
+        [ColumnDefinition(ColumnTitle = "DistanceFromShipToCenter")]
+        public double DistanceFromShipToCenter { get; set; }
     }
 }
