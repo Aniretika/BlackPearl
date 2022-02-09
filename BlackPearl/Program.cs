@@ -31,8 +31,6 @@ namespace BlackPearl
 
             //field.SetShip(Quadrant.Fourth, 0, 2, repairer1, Direction.Down);
 
-         
-
 
             //string connectionString = @"Data Source =.\SOROKASQL; " +
             //    "Initial Catalog=SeaFight;" +
@@ -53,12 +51,22 @@ namespace BlackPearl
             {
                 Field field = new Field(8, 8);
 
+                unitOfWork.GetRepository<Field>().Figach();
                 field.ID = unitOfWork.GetRepository<Field>().Add(field);
 
+                for (int column = 0; column < field.Width; column++)
+                {
+                    for (int row = 0; row < field.Height; row++)
+                    {
+                        field.CoordinateField[row, column].ID =
+                            unitOfWork.GetRepository<Coordinate>().Add(field.CoordinateField[row, column]);
+                    }
+                }
                 field.SetShip(Quadrant.First, 3, 1, hybrid, Direction.Down);
                 hybrid.ID = unitOfWork.GetRepository<Ship>().Add(hybrid);
 
                 unitOfWork.GetRepository<Field>().Update(field);
+                
 
                 //unitOfWork.GetRepository<Ship>().Add(repairer);
                 //unitOfWork.GetRepository<Ship>().Delete(1);

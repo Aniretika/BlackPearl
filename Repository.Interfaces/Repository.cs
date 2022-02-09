@@ -45,7 +45,16 @@ namespace Repository.Interfaces
         //    Console.WriteLine($"Insert {number} rows");
         //    return number;
         //}
+        public int Figach()
+        {
 
+            SqlCommand query = new();
+            query.Connection = Context;
+            query.CommandText = "DELETE FROM Field WHERE Width = 8 DELETE FROM Coordinate WHERE IsHeadOfTheShip = 0 or IsHeadOfTheShip = 1 DELETE FROM Ship WHERE RangeOfAction = 3";
+            int number = query.ExecuteNonQuery();
+            Console.WriteLine($"Insert {number} rows");
+            return number;
+        }
         public int Add(T item)
         {
             SqlCommand query = new(sqlCommandBuilder.Insert(item), Context);
@@ -68,12 +77,12 @@ namespace Repository.Interfaces
 
         public int Update(T item)
         {
-
             SqlCommand query = new SqlCommand(sqlCommandBuilder.Update(item), Context);
 
-            int number = query.ExecuteNonQuery();
-            Console.WriteLine($"Update {number} rows");
-            return number;
+            int number1 = query.ExecuteNonQuery();
+
+            Console.WriteLine($"ID {number1}");
+            return number1;
         }
 
 

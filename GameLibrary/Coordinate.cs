@@ -4,8 +4,13 @@ namespace GameLibrary
 {
     [TableDefinition(ColumnTitle = "Coordinate")]
     [FKRelationship(typeof(Field), ColumnTitle = "Field_id")]
+    [FKRelationship(typeof(Ship), ColumnTitle = "Ship_id")]
     public class Coordinate : EntityBase
     {
+        public Coordinate()
+        {
+        }
+
         public Coordinate(int xCoord, int yCoord, double distanceFromShipToCenter)
         {
             this.XCoord = xCoord;

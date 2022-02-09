@@ -7,7 +7,6 @@ using MyAttriubutes;
 namespace GameLibrary
 {
     [TableDefinition(ColumnTitle = "Field")]
-   
     public class Field : EntityBase
     {
         public Field() { }

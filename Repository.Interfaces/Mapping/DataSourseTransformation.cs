@@ -38,8 +38,8 @@ namespace Repository.Interfaces.Mapping
                             dataQuery.Add(dataQueryDictionaryKey, propertyInfo.GetValue(objectInstance).ToString());
                             break;
                     }
-
-                }
+                   
+                    }
                 else if (objectInstance.GetType().BaseType.GetTypeInfo().IsAbstract)
                 {
                     dataQuery.Add("Discriptor", $"'{objectInstance.GetType().Name}'");
@@ -54,28 +54,18 @@ namespace Repository.Interfaces.Mapping
         {
             // object of pk`s master, object - pk value
             var fksContainer = new Dictionary<object, object>();
-
+            var t = objectInstance.GetType();
             foreach (var propertyInfo in objectInstance.GetType().GetProperties())
             {
                 if ((propertyInfo.GetCustomAttribute(typeof(PKRelationshipAttribute)) as PKRelationshipAttribute) != null)
                 {
-                    var pkAttribute = propertyInfo.GetCustomAttribute(typeof(PKRelationshipAttribute)) as PKRelationshipAttribute;
+                    //var pkAttribute = propertyInfo.GetCustomAttribute(typeof(PKRelationshipAttribute)) as PKRelationshipAttribute;
                    
-                    fksContainer.Add(objectInstance, propertyInfo.GetValue(objectInstance).ToString());
+                    fksContainer.Add(objectInstance, propertyInfo.GetValue(objectInstance));
                 }
             }
             return fksContainer;
         }
-
-        //public Dictionary<string, object> GetFksDataQuery(Dictionary<object, object> pksDataHandler, object objectInstance)
-        //{ 
-
-        //}
-
-        //public bool HasFk(object objectInstance, Dictionary<object, object> pksDataHandler)
-        //{
-
-        //}
 
         public string GetTableName(Type type)
         {

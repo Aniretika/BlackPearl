@@ -11,9 +11,19 @@ using System.Threading.Tasks;
 using MyAttriubutes;
 using System.Linq.Expressions;
 using System.Collections;
+using Microsoft.VisualBasic.CompilerServices;
 
 namespace Repository.Interfaces.SqlCommandBuilder
 {
+    public static class ArrayExtensions
+    {
+        public static IEnumerable<T> ToEnumerable<T>(this Array target)
+        {
+            foreach (var item in target)
+                yield return (T)item;
+        }
+    }
+
     public class SqlCommandBuilder<T> where T : class
     {
         private DataSourceTransormation<T> dataSource = new DataSourceTransormation<T>();
@@ -21,14 +31,14 @@ namespace Repository.Interfaces.SqlCommandBuilder
         private Dictionary<object, object> RelationKeyContainer { get; set; }
         public string Insert(object item) => InsertQueryPreparer(InsertWrapper, item);
         public string Update(object item) => UpdateQueryPreparer(UpdateWrapper, item);
-
+       
         private string InsertQueryPreparer(Func<object, string> queryWrapper, object obj)//func
         {
             StringBuilder stringQuery = new StringBuilder();
 
             stringQuery.Append(queryWrapper(obj));
             stringQuery.Append(" SELECT SCOPE_IDENTITY() ");
-            stringQuery.Append(GetNestedObjects(queryWrapper, obj));
+
 
             return stringQuery.ToString();
         }
@@ -42,6 +52,8 @@ namespace Repository.Interfaces.SqlCommandBuilder
 
             return stringQuery.ToString();
         }
+       
+         
 
         private string GetNestedObjects(Func<object, string> queryWrapper, object obj)
         {
@@ -69,14 +81,10 @@ namespace Repository.Interfaces.SqlCommandBuilder
                 else if (nestedObject.GetType().IsArray)
                 {
                     var array = (IEnumerable)nestedObject;
-                    foreach (var nestedObjectExemplar in array)
-                    {
-                        stringQuery.Append(queryWrapper(nestedObjectExemplar));
 
-                        if (GetObjectByFk(nestedObjectExemplar) != null)
-                        {
-                            stringQuery.Append(GetNestedObjects(queryWrapper, nestedObjectExemplar));
-                        }
+                    foreach (var t in array)
+                    {
+                        //array.
                     }
                 }
                 else
@@ -102,13 +110,13 @@ namespace Repository.Interfaces.SqlCommandBuilder
             // RelationKeyContainer = dataSource.GetPksDataQuery(obj).Select(dict => dict)
             //   .ToDictionary(pair => pair.Key, pair => pair.Value);
 
-            queryPreparer = GetFkValues(updatingInstance).Select(dict => dict)
-              .ToDictionary(pair => pair.Key, pair => pair.Value);
+            
+            queryPreparer = queryPreparer.Concat(GetFkValues(updatingInstance)).ToDictionary(e => e.Key, e => e.Value);
 
-            string updateSetContainer = string.Join(", ", 
+            string updateSetContainer = string.Join(", ",
                 queryPreparer.Zip(queryPreparer, (tableField, tableData) => tableField.Key + " = " + tableData.Value));
             var instanceType = updatingInstance.GetType();
-             
+
 
             //throw new Exception("Insert Error: 
             // No Data Source was provided in the " + dataObject.GetType().Name + 
@@ -127,7 +135,7 @@ namespace Repository.Interfaces.SqlCommandBuilder
                     return propertyInfo.GetValue(item);
                 }
             }
-          
+
             return null;
         }
         private Dictionary<string, object> GetFkValues(object nestedObjectInstance)
@@ -141,7 +149,7 @@ namespace Repository.Interfaces.SqlCommandBuilder
             {
                 if (RelationKeyContainer.Any(attr => attr.Key.GetType() == MyAttributes[i].ForeignKeyType))
                 {
-                    containerFks.Add(MyAttributes[i].ColumnTitle, RelationKeyContainer.FirstOrDefault(fkObject => fkObject.Value.GetType() == MyAttributes[i].ForeignKeyType).Key);
+                    containerFks.Add(MyAttributes[i].ColumnTitle, RelationKeyContainer.FirstOrDefault(fkObject => fkObject.Key.GetType() == MyAttributes[i].ForeignKeyType).Value);
                 }
             }
 
@@ -151,9 +159,9 @@ namespace Repository.Interfaces.SqlCommandBuilder
                 if ((propertyInfo.GetCustomAttribute(typeof(FKRelationshipAttribute)) as FKRelationshipAttribute) != null)
                 {
                     var currentFk = propertyInfo.GetCustomAttribute(typeof(FKRelationshipAttribute)) as FKRelationshipAttribute;
-                    if (RelationKeyContainer.Any(attr => attr.Key.GetType() == currentFk.ForeignKeyType))
+                    if (RelationKeyContainer!=null && RelationKeyContainer.Any(attr => attr.Key.GetType() == currentFk.ForeignKeyType))
                     {
-                        containerFks.Add(currentFk.ColumnTitle, RelationKeyContainer.FirstOrDefault(x => x.Value.GetType() == currentFk.ForeignKeyType).Key);
+                        containerFks.Add(currentFk.ColumnTitle, RelationKeyContainer.FirstOrDefault(fkObject => fkObject.Key.GetType() == currentFk.ForeignKeyType).Value);
                     }
                 }
             }
@@ -162,7 +170,7 @@ namespace Repository.Interfaces.SqlCommandBuilder
 
         public string Include(T item, Type joinedType)
         {
-            if(JoinRelationChecker(item, joinedType))
+            if (JoinRelationChecker(item, joinedType))
             {
                 string itemJoinedTable = dataSource.GetTableName() + "_joined";
                 string joinedTypeTable = dataSource.GetTableName(joinedType) + "_joined";

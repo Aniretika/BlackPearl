@@ -15,6 +15,7 @@ namespace Repository.Interfaces
         int Add(T item);
         int Update(T item);
         int Delete(int id);
+        int Figach();
         T GetItem(int id);
         T Include(T item, Type joinedType);
     }
