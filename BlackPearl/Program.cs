@@ -11,7 +11,7 @@ namespace BlackPearl
     {
         public static void Main()
         {
-            Field field = new Field(8, 8);
+            //Field field = new Field(8, 8);
             //Field field = new Field(2, 2);
             Ship shooter = new Fighter(1, 2, 2);
 
@@ -22,17 +22,16 @@ namespace BlackPearl
             Ship hybrid1 = new Hybrid(4, 4, 2);
 
             Ship repairer1 = new Repairer(3, 1, 2);
-            field.SetShip(Quadrant.Fourth, 0, 0, shooter, Direction.Right);
-            field.SetShip(Quadrant.First, 3, 1, hybrid, Direction.Down);
-            field.SetShip(Quadrant.Fourth, 0, 2, repairer, Direction.Down);
+            //field.SetShip(Quadrant.Fourth, 0, 0, shooter, Direction.Right);
+            
+            //field.SetShip(Quadrant.Fourth, 0, 2, repairer, Direction.Down);
 
-            field.SetShip(Quadrant.First, 0, 0, shooter1, Direction.Left);
-            field.SetShip(Quadrant.Second, 3, 1, hybrid1, Direction.Left);
+            //field.SetShip(Quadrant.First, 0, 0, shooter1, Direction.Left);
+            //field.SetShip(Quadrant.Second, 3, 1, hybrid1, Direction.Left);
 
-            field.SetShip(Quadrant.Fourth, 0, 2, repairer1, Direction.Down);
+            //field.SetShip(Quadrant.Fourth, 0, 2, repairer1, Direction.Down);
 
-            System.Console.WriteLine(field.FieldCondition());
-            System.Console.WriteLine(field.ToString());
+         
 
 
             //string connectionString = @"Data Source =.\SOROKASQL; " +
@@ -52,12 +51,20 @@ namespace BlackPearl
                 "Initial Catalog=SeaFight;" +
                 "User ID=SuperUser; Integrated Security=true"))
             {
+                Field field = new Field(8, 8);
 
-                unitOfWork.GetRepository<Field>().Add(field);
-               // unitOfWork.GetRepository<Ship>().Add(hybrid);
+                field.ID = unitOfWork.GetRepository<Field>().Add(field);
+
+                field.SetShip(Quadrant.First, 3, 1, hybrid, Direction.Down);
+                hybrid.ID = unitOfWork.GetRepository<Ship>().Add(hybrid);
+
+                unitOfWork.GetRepository<Field>().Update(field);
+
                 //unitOfWork.GetRepository<Ship>().Add(repairer);
                 //unitOfWork.GetRepository<Ship>().Delete(1);
                 // var result = unitOfWork.GetRepository<Field>().GetItem(15);
+                //System.Console.WriteLine(field.FieldCondition());
+                //System.Console.WriteLine(field.ToString());
             }
 
 

@@ -50,27 +50,32 @@ namespace Repository.Interfaces
         {
             SqlCommand query = new(sqlCommandBuilder.Insert(item), Context);
 
+            //int number = query.ExecuteNonQuery();
+            object number1 = query.ExecuteScalar();
+
+            Console.WriteLine($"ID {number1}");
+            return (int)(decimal)number1;
+        }
+
+        public int Delete(int id)
+        {
+            SqlCommand query = new SqlCommand(sqlCommandBuilder.Remove(id), Context);
+
             int number = query.ExecuteNonQuery();
             Console.WriteLine($"Insert {number} rows");
             return number;
         }
 
-        //public async Task<int> UpdateAsync(T item)
-        //{
-        //    SqlCommand query = new SqlCommand(sqlCommandBuilder.Update(item));
+        public int Update(T item)
+        {
 
-        //    int number = await query.ExecuteNonQueryAsync();
-        //    return number;
-        //}
+            SqlCommand query = new SqlCommand(sqlCommandBuilder.Update(item), Context);
 
+            int number = query.ExecuteNonQuery();
+            Console.WriteLine($"Update {number} rows");
+            return number;
+        }
 
-        //public async Task<int> DeleteAsync(int id)
-        //{
-        //    SqlCommand query = new SqlCommand(sqlCommandBuilder.Remove(id));
-
-        //    int number = await query.ExecuteNonQueryAsync();
-        //    return number;
-        //}
 
         public T Include(T item, Type joinedType)
         {
@@ -173,19 +178,23 @@ namespace Repository.Interfaces
             return newObject;
         }
 
-        public int Update(T item)
-        {
-            throw new NotImplementedException();
-        }
+        //public async Task<int> UpdateAsync(T item)
+        //{
+        //    SqlCommand query = new SqlCommand(sqlCommandBuilder.Update(item));
 
-        public int Delete(int id)
-        {
-            SqlCommand query = new SqlCommand(sqlCommandBuilder.Remove(id), Context);
+        //    int number = await query.ExecuteNonQueryAsync();
+        //    return number;
+        //}
 
-            int number = query.ExecuteNonQuery();
-            Console.WriteLine($"Insert {number} rows");
-            return number;
-        }
+
+        //public async Task<int> DeleteAsync(int id)
+        //{
+        //    SqlCommand query = new SqlCommand(sqlCommandBuilder.Remove(id));
+
+        //    int number = await query.ExecuteNonQueryAsync();
+        //    return number;
+        //}
+
     }
-   
+
 }

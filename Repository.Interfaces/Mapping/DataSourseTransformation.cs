@@ -22,13 +22,13 @@ namespace Repository.Interfaces.Mapping
             {
                 if ((propertyInfo.GetCustomAttribute(typeof(ColumnDefinition)) as ColumnDefinition) != null)
                 {
-                    var column = propertyInfo.GetCustomAttribute(typeof(ColumnDefinition)) as ColumnDefinition;
-                    dataQueryDictionaryKey = column.ColumnTitle.ToString();
+                    var columnAttribute = propertyInfo.GetCustomAttribute(typeof(ColumnDefinition)) as ColumnDefinition;
+                    dataQueryDictionaryKey = columnAttribute.ColumnTitle.ToString();
                     //сравнивать type
                     switch (propertyInfo.PropertyType.Name.ToString())
                     {
                         case "String" or "Boolean":
-                            dataQuery.Add(dataQueryDictionaryKey, $"'{propertyInfo.GetValue(objectInstance).ToString()}'");
+                            dataQuery.Add(dataQueryDictionaryKey, $"'{propertyInfo.GetValue(objectInstance)}'");
                             break;
                         case "DateTime":
                             var dateTime = (DateTime)propertyInfo.GetValue(objectInstance);
@@ -38,47 +38,47 @@ namespace Repository.Interfaces.Mapping
                             dataQuery.Add(dataQueryDictionaryKey, propertyInfo.GetValue(objectInstance).ToString());
                             break;
                     }
+
                 }
                 else if (objectInstance.GetType().BaseType.GetTypeInfo().IsAbstract)
                 {
                     dataQuery.Add("Discriptor", $"'{objectInstance.GetType().Name}'");
                 }
+              
+                
             }
-
             return dataQuery;
         }
-        private object GetObjectByFk(T item)
+
+        public Dictionary<object, object> GetPksDataQuery(object objectInstance)
         {
-            foreach (var propertyInfo in item.GetType().GetProperties())
+            // object of pk`s master, object - pk value
+            var fksContainer = new Dictionary<object, object>();
+
+            foreach (var propertyInfo in objectInstance.GetType().GetProperties())
             {
-                if ((propertyInfo.GetCustomAttribute(typeof(FKRelationshipAttribute)) as FKRelationshipAttribute) != null)
+                if ((propertyInfo.GetCustomAttribute(typeof(PKRelationshipAttribute)) as PKRelationshipAttribute) != null)
                 {
-                    return propertyInfo.GetValue(item);
+                    var pkAttribute = propertyInfo.GetCustomAttribute(typeof(PKRelationshipAttribute)) as PKRelationshipAttribute;
+                   
+                    fksContainer.Add(objectInstance, propertyInfo.GetValue(objectInstance).ToString());
                 }
             }
-
-            return null;
+            return fksContainer;
         }
 
-        private static bool IsPropertyIsFK(PropertyInfo propertyInfo, T item)
-        {
-            FKRelationshipAttribute[] MyAttributes =
-                              (FKRelationshipAttribute[])Attribute.GetCustomAttributes(item.GetType(), typeof(FKRelationshipAttribute));
+        //public Dictionary<string, object> GetFksDataQuery(Dictionary<object, object> pksDataHandler, object objectInstance)
+        //{ 
 
-            if (MyAttributes.Any(connectedEntityType => connectedEntityType.ForeignKeyType == propertyInfo.PropertyType))
-            {
-                return true;
-            }
-            else
-            {
-                return false;
-            }
-        }
+        //}
+
+        //public bool HasFk(object objectInstance, Dictionary<object, object> pksDataHandler)
+        //{
+
+        //}
 
         public string GetTableName(Type type)
         {
-            var t = type;
-  
             TableDefinition MyAttribute =
               (TableDefinition)Attribute.GetCustomAttribute(type, typeof(TableDefinition));
             return MyAttribute.ColumnTitle;
@@ -91,6 +91,20 @@ namespace Repository.Interfaces.Mapping
             return tablename.ColumnTitle;
         }
       
+        public string GetPkField(Type itemType)
+        {
+            foreach (var propertyInfo in itemType.GetProperties())
+            {
+                if ((propertyInfo.GetCustomAttribute(typeof(PKRelationshipAttribute)) as PKRelationshipAttribute) != null)
+                {
+                    var pkAttribute = propertyInfo.GetCustomAttribute(typeof(PKRelationshipAttribute)) as PKRelationshipAttribute;
+
+                    return pkAttribute.ColumnTitle;
+                }
+            }
+            return null;
+        }
+
         public string GetPkField()
         {
             var itemType = typeof(T);
@@ -103,8 +117,9 @@ namespace Repository.Interfaces.Mapping
                     return pkAttribute.ColumnTitle;
                 }
             }
-            return "";
+            return null;
         }
+
         public int GetObjectId(object objectInstance)
         {
             var itemType = objectInstance.GetType();
