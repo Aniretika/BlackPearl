@@ -1,4 +1,5 @@
-﻿using MyAttriubutes;
+﻿using GameLibrary;
+using MyAttriubutes;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -13,55 +14,133 @@ namespace Repository.Interfaces.Mapping
     public class DataSourceTransormation<T> where T : class
     {
         public DataSourceTransormation() { }
-        public Dictionary<string, object> GetDataForInsertQuery(object objectInstance)
+        public Dictionary<string, object> GetDataForInsertQuery(object mainInstance)
         {
             var dataQuery = new Dictionary<string, object>();
-            string dataQueryDictionaryKey = "";
-
-            foreach (var propertyInfo in objectInstance.GetType().GetProperties())
+           
+            foreach (var propertyInfo in mainInstance.GetType().GetProperties())
             {
                 if ((propertyInfo.GetCustomAttribute(typeof(ColumnDefinition)) as ColumnDefinition) != null)
                 {
                     var columnAttribute = propertyInfo.GetCustomAttribute(typeof(ColumnDefinition)) as ColumnDefinition;
-                    dataQueryDictionaryKey = columnAttribute.ColumnTitle.ToString();
-                    //сравнивать type
-                    switch (propertyInfo.PropertyType.Name.ToString())
-                    {
-                        case "String" or "Boolean":
-                            dataQuery.Add(dataQueryDictionaryKey, $"'{propertyInfo.GetValue(objectInstance)}'");
-                            break;
-                        case "DateTime":
-                            var dateTime = (DateTime)propertyInfo.GetValue(objectInstance);
-                            dataQuery.Add(dataQueryDictionaryKey, $"'{dateTime.ToString("yyyy-MM-dd")}'");
-                            break;
-                        default:
-                            dataQuery.Add(dataQueryDictionaryKey, propertyInfo.GetValue(objectInstance).ToString());
-                            break;
-                    }
-                   
-                    }
-                else if (objectInstance.GetType().BaseType.GetTypeInfo().IsAbstract)
-                {
-                    dataQuery.Add("Discriptor", $"'{objectInstance.GetType().Name}'");
+                    string attributeTitle = columnAttribute.ColumnTitle.ToString();
+                    dataQuery = dataQuery.Concat(ConvertDataBLLToDb(propertyInfo, mainInstance, attributeTitle))
+                     .ToDictionary(x => x.Key, x => x.Value);
                 }
-              
-                
+                else if ((propertyInfo.GetCustomAttribute(typeof(FKRelationshipAttribute)) as FKRelationshipAttribute) != null)
+                {
+                    var columnAttribute = propertyInfo.GetCustomAttribute(typeof(FKRelationshipAttribute)) as FKRelationshipAttribute;
+                    string attributeTitle = columnAttribute.ColumnTitle.ToString();
+                    dataQuery = dataQuery.Concat(ConvertDataBLLToDb(propertyInfo, mainInstance, attributeTitle))
+                       .ToDictionary(x => x.Key, x => x.Value);
+                }
+            }
+            if (mainInstance.GetType().BaseType.GetTypeInfo().IsAbstract)
+            {
+                dataQuery.Add("Discriptor", $"'{mainInstance.GetType().Name}'");
             }
             return dataQuery;
+        }
+
+        private Dictionary<string, object> ConvertDataBLLToDb(PropertyInfo propertyInfo, object objectInstance, string attributeTitle)
+        {
+            var dataQuery = new Dictionary<string, object>();
+
+            if (propertyInfo.GetValue(objectInstance) != null)
+            {
+                switch (propertyInfo.PropertyType.Name.ToString())
+                {
+                    case "String" or "Boolean":
+                        dataQuery.Add(attributeTitle, $"'{propertyInfo.GetValue(objectInstance)}'");
+                        break;
+                    case "DateTime":
+                        var dateTime = (DateTime)propertyInfo.GetValue(objectInstance);
+                        dataQuery.Add(attributeTitle, $"'{dateTime.ToString("yyyy-MM-dd")}'");
+                        break;
+                    default:
+                        dataQuery.Add(attributeTitle, propertyInfo.GetValue(objectInstance).ToString());
+                        break;
+                }
+            }
+            return dataQuery;
+        }
+
+        public string GetFkColumnTitleDependedEntity(object principalEntity, object dependedEntity)
+        {
+
+            FKRelationshipAttribute fkAttribute = null;
+            foreach (var propertyInfo in dependedEntity.GetType().GetProperties())
+            {
+                object[] attributes = propertyInfo.GetCustomAttributes(true);
+                foreach (object attribute in attributes)
+                {
+                    fkAttribute = attribute as FKRelationshipAttribute;
+                    var t = principalEntity.GetType();
+                    if (fkAttribute != null)
+                    {
+                        if (fkAttribute.ForeignKeyType == principalEntity.GetType())
+                        {
+                            return fkAttribute.ColumnTitle;
+                        }
+                        
+                        else if (fkAttribute.ForeignKeyType.IsAssignableFrom(principalEntity.GetType()))
+                        {
+                            return fkAttribute.ColumnTitle;
+                        }
+                    }
+                   
+                }
+            }
+            return null;
+        }
+
+
+public object GetPrimaryKeyValue(object objectInstance)
+        {
+            foreach (var propertyInfo in objectInstance.GetType().GetProperties())
+            {
+                if ((propertyInfo.GetCustomAttribute(typeof(PKRelationshipAttribute)) as PKRelationshipAttribute) != null)
+                {
+                    return propertyInfo.GetValue(objectInstance);
+                }
+            }
+            return null;
+        }
+
+
+        public object GetObjectByFk(object item)
+        {
+            if ((item.GetType().GetCustomAttribute(typeof(FKRelationshipAttribute)) as FKRelationshipAttribute) != null)
+            {
+                var fkAttribute = item.GetType().GetCustomAttribute(typeof(FKRelationshipAttribute)) as FKRelationshipAttribute;
+                foreach (var relatedInstanceProperty in item.GetType().GetProperties())
+                {
+                    if (relatedInstanceProperty.GetType() == fkAttribute.ForeignKeyType
+                        || relatedInstanceProperty.GetType().GetElementType() == fkAttribute.ForeignKeyType)
+                    {
+                        return relatedInstanceProperty;
+                        //var instanceId = RelationIdentifier(relatedInstanceProperty);
+                        //if (instanceId != null)
+                        //    dataQuery.Add(fkAttribute.ColumnTitle, instanceId);
+                    }
+                }
+            }
+
+            return null;
         }
 
         public Dictionary<object, object> GetPksDataQuery(object objectInstance)
         {
             // object of pk`s master, object - pk value
             var fksContainer = new Dictionary<object, object>();
-            var t = objectInstance.GetType();
+
             foreach (var propertyInfo in objectInstance.GetType().GetProperties())
             {
                 if ((propertyInfo.GetCustomAttribute(typeof(PKRelationshipAttribute)) as PKRelationshipAttribute) != null)
                 {
                     //var pkAttribute = propertyInfo.GetCustomAttribute(typeof(PKRelationshipAttribute)) as PKRelationshipAttribute;
                    
-                    fksContainer.Add(objectInstance, propertyInfo.GetValue(objectInstance));
+                    fksContainer.Add(objectInstance, propertyInfo.GetValue(objectInstance).ToString());
                 }
             }
             return fksContainer;
@@ -126,20 +205,38 @@ namespace Repository.Interfaces.Mapping
         public string GetFkField(Type joinedType)
         {
             Type itemType = typeof(T);
-            foreach (var propertyInfo in itemType.GetProperties())
-            {
-                if ((propertyInfo.GetCustomAttribute(typeof(FKRelationshipAttribute)) as FKRelationshipAttribute) != null
-                    && ((propertyInfo.GetCustomAttribute(typeof(FKRelationshipAttribute)) as FKRelationshipAttribute).ForeignKeyType == joinedType))
+            Object[] attributes = itemType.GetCustomAttributes(true));
+
+                foreach (object attribute in attributes)
                 {
-                    FKRelationshipAttribute keyAttribute = propertyInfo.GetCustomAttribute(typeof(FKRelationshipAttribute)) as FKRelationshipAttribute;
-                    return keyAttribute.ColumnTitle;
-                }
-                else
-                {
-                    throw new NotImplementedException();
-                }
+                    fkAttribute = attribute as FKRelationshipAttribute;
+                    var t = principalEntity.GetType();
+                    if (fkAttribute != null)
+                    {
+                        if (fkAttribute.ForeignKeyType == principalEntity.GetType())
+                        {
+                            return fkAttribute.ColumnTitle;
+                        }
+
+                        else if (fkAttribute.ForeignKeyType.IsAssignableFrom(principalEntity.GetType()))
+                        {
+                            return fkAttribute.ColumnTitle;
+                        }
+                    }
+
             }
             return "";
         }
     }
 }
+
+//if ((propertyInfo.GetCustomAttribute(typeof(FKRelationshipAttribute)) as FKRelationshipAttribute) != null
+//                    && ((propertyInfo.GetCustomAttribute(typeof(FKRelationshipAttribute)) as FKRelationshipAttribute).ForeignKeyType == joinedType))
+//{
+//    FKRelationshipAttribute keyAttribute = propertyInfo.GetCustomAttribute(typeof(FKRelationshipAttribute)) as FKRelationshipAttribute;
+//    return keyAttribute.ColumnTitle;
+//}
+//else
+//{
+//    throw new NotImplementedException();
+//}

@@ -62,12 +62,24 @@ namespace BlackPearl
                             unitOfWork.GetRepository<Coordinate>().Add(field.CoordinateField[row, column]);
                     }
                 }
+
                 field.SetShip(Quadrant.First, 3, 1, hybrid, Direction.Down);
                 hybrid.ID = unitOfWork.GetRepository<Ship>().Add(hybrid);
-
-                unitOfWork.GetRepository<Field>().Update(field);
                 
 
+                unitOfWork.GetRepository<Field>().Update(field);
+                hybrid.FieldID = field.ID;//include
+                unitOfWork.GetRepository<Ship>().Update(hybrid);
+               
+
+                unitOfWork.GetRepository<Coordinate>().Update(field[Quadrant.First, 3, 1]);
+
+                unitOfWork.GetRepository<Ship>().Include(hybrid, field.GetType());
+                Field newField = unitOfWork.GetRepository<Field>().GetItem(field.ID);
+
+                Console.WriteLine($"{newField}");
+
+                System.Console.Read();
                 //unitOfWork.GetRepository<Ship>().Add(repairer);
                 //unitOfWork.GetRepository<Ship>().Delete(1);
                 // var result = unitOfWork.GetRepository<Field>().GetItem(15);

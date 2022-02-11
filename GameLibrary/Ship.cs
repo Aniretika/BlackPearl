@@ -5,7 +5,6 @@ using MyAttriubutes;
 namespace GameLibrary
 {
     [TableDefinition(ColumnTitle = "Ship")]
-    [FKRelationship(typeof(Field), ColumnTitle = "Field_id")]
     public abstract class Ship : EntityBase
     {
         public Ship() { }
@@ -17,10 +16,6 @@ namespace GameLibrary
             this.Health = length;
             this.RangeOfAction = rangeOfAction;
         }
-        //Need in ID
-
-        //[Column(Storage = "Ship_id", DbType = "INT NOT NULL", CanBeNull = false)]
-        //public override int ID { get; set; }
 
         [ColumnDefinition(ColumnTitle = "Speed")]
         public int Speed { get; set; }
@@ -36,6 +31,9 @@ namespace GameLibrary
 
         [PKRelationship(ColumnTitle = "Ship_id")]
         public int ID { get; set; }
+
+        [FKRelationship(typeof(Field), ColumnTitle = "Field_id")]
+        public int? FieldID { get; set; }
 
         public static bool operator ==(Ship ship1, Ship ship2)
         {

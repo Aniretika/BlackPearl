@@ -21,8 +21,7 @@ namespace GameLibrary
 
         [ColumnDefinition(ColumnTitle = "Height")]
         public int Height { get; private set; }
-
-        [FKRelationship(typeof(Coordinate), ColumnTitle = "Coordinate_id")]
+        [NavigationProperty]
         public Coordinate[,] CoordinateField { get; private set; }
 
         [PKRelationship(ColumnTitle = "Field_id")]
@@ -80,19 +79,26 @@ namespace GameLibrary
             string stateOfField = "List of ships:\n";
 
             List<Coordinate> shipHeadCoordinates = new List<Coordinate>();
-
-            for (int i = 0; i < this.Width; i++)
+            if (this.CoordinateField != null)
             {
-                for (int j = 0; j < this.Height; j++)
+                for (int i = 0; i < this.Width; i++)
                 {
-
-                    if (this.CoordinateField[i, j].IsHeadOfTheShip)
+                    for (int j = 0; j < this.Height; j++)
                     {
-                        shipHeadCoordinates.Add(this.CoordinateField[i, j]);
-                    }
 
+                        if (this.CoordinateField[i, j].IsHeadOfTheShip)
+                        {
+                            shipHeadCoordinates.Add(this.CoordinateField[i, j]);
+                        }
+
+                    }
                 }
             }
+            else
+            {
+                stateOfField += "Field is not initialized";
+            }
+            
 
             foreach (var shipCoordinate in shipHeadCoordinates.OrderBy(coordinate => coordinate.DistanceFromShipToCenter))
             {
@@ -183,9 +189,11 @@ namespace GameLibrary
 
         private Coordinate ShipHeadCoordinate(int shipHeadCoordinateX, int shipHeadCoordinateY)
         {
-            return this.CoordinateField[shipHeadCoordinateY, shipHeadCoordinateX].Ship != null
-                                ? this.CoordinateField[shipHeadCoordinateY, shipHeadCoordinateX]
-                                : null;
+            if (this.CoordinateField[shipHeadCoordinateX, shipHeadCoordinateY].Ship != null)
+            {
+                return this.CoordinateField[shipHeadCoordinateX, shipHeadCoordinateY];        
+            }
+            return null;
         }
 
         private bool CheckShipInCaseDirectionRigth(int shipHeadCoordinateX, int shipHeadCoordinateY, Ship ship)

@@ -3,8 +3,6 @@
 namespace GameLibrary
 {
     [TableDefinition(ColumnTitle = "Coordinate")]
-    [FKRelationship(typeof(Field), ColumnTitle = "Field_id")]
-    [FKRelationship(typeof(Ship), ColumnTitle = "Ship_id")]
     public class Coordinate : EntityBase
     {
         public Coordinate()
@@ -29,6 +27,11 @@ namespace GameLibrary
         public int YCoord { get; set; }
 
         [FKRelationship(typeof(Ship), ColumnTitle = "Ship_id")]
+        public int? ShipID { get; set; }
+
+        [FKRelationship(typeof(Field), ColumnTitle = "Field_id")]
+        public int? FieldID { get; set; }
+        [NavigationProperty]
         public Ship Ship { get; set; }
 
         [ColumnDefinition(ColumnTitle = "IsHeadOfTheShip")]
@@ -36,5 +39,6 @@ namespace GameLibrary
 
         [ColumnDefinition(ColumnTitle = "DistanceFromShipToCenter")]
         public double DistanceFromShipToCenter { get; set; }
+        
     }
 }

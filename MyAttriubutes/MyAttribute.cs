@@ -37,5 +37,9 @@ namespace MyAttriubutes
     {
         public string ColumnTitle { get; set; }
     }
+    [AttributeUsage(AttributeTargets.Property | AttributeTargets.Field)]
+    public class NavigationProperty : Attribute
+    {
+    }
 }
 

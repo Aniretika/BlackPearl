@@ -39,7 +39,6 @@ namespace Repository.Interfaces.SqlCommandBuilder
             stringQuery.Append(queryWrapper(obj));
             stringQuery.Append(" SELECT SCOPE_IDENTITY() ");
 
-
             return stringQuery.ToString();
         }
 
@@ -47,53 +46,12 @@ namespace Repository.Interfaces.SqlCommandBuilder
         {
             StringBuilder stringQuery = new StringBuilder();
 
-            stringQuery.Append(queryWrapper(obj));
-            stringQuery.Append(GetNestedObjects(queryWrapper, obj));
+            stringQuery.Append(UpdateWrapper(obj));
 
             return stringQuery.ToString();
-        }
+        }  
+
        
-         
-
-        private string GetNestedObjects(Func<object, string> queryWrapper, object obj)
-        {
-            StringBuilder stringQuery = new();
-            object nestedObject = GetObjectByFk(obj);
-
-            //merge two dictionaries
-            RelationKeyContainer = dataSource.GetPksDataQuery(obj).Select(dict => dict)
-                         .ToDictionary(pair => pair.Key, pair => pair.Value);
-
-            if (nestedObject != null)
-            {
-                if (nestedObject.GetType() is IEnumerable)
-                {
-                    var collectionOfNestedObject = nestedObject as IEnumerable;
-                    foreach (var nestedObjectInstance in collectionOfNestedObject)
-                    {
-                        stringQuery.Append(queryWrapper(nestedObjectInstance));
-                        if (GetObjectByFk(nestedObjectInstance) != null)
-                        {
-                            stringQuery.Append(GetNestedObjects(queryWrapper, nestedObjectInstance));
-                        }
-                    }
-                }
-                else if (nestedObject.GetType().IsArray)
-                {
-                    var array = (IEnumerable)nestedObject;
-
-                    foreach (var t in array)
-                    {
-                        //array.
-                    }
-                }
-                else
-                {
-                    stringQuery.Append(queryWrapper(nestedObject));
-                }
-            }
-            return stringQuery.ToString();
-        }
         private string InsertWrapper(object insertingInstance)
         {
             var queryPreparer = dataSource.GetDataForInsertQuery(insertingInstance);
@@ -106,66 +64,91 @@ namespace Repository.Interfaces.SqlCommandBuilder
         private string UpdateWrapper(object updatingInstance)
         {
             var queryPreparer = dataSource.GetDataForInsertQuery(updatingInstance);
-            //merge two dictionaries
-            // RelationKeyContainer = dataSource.GetPksDataQuery(obj).Select(dict => dict)
-            //   .ToDictionary(pair => pair.Key, pair => pair.Value);
-
-            
-            queryPreparer = queryPreparer.Concat(GetFkValues(updatingInstance)).ToDictionary(e => e.Key, e => e.Value);
 
             string updateSetContainer = string.Join(", ",
                 queryPreparer.Zip(queryPreparer, (tableField, tableData) => tableField.Key + " = " + tableData.Value));
             var instanceType = updatingInstance.GetType();
 
-
-            //throw new Exception("Insert Error: 
-            // No Data Source was provided in the " + dataObject.GetType().Name + 
-            //". Kindly review the class definition or the data mapper definition.");
             string stringQuery = $"UPDATE {dataSource.GetTableName(instanceType)} " +
                 $"SET {updateSetContainer} " +
                 $"WHERE {dataSource.GetPkField(instanceType)} = {dataSource.GetObjectId(updatingInstance)} ";
+            stringQuery += UpdateQueryDependedEntity(updatingInstance);
+
             return stringQuery;
         }
-        private object GetObjectByFk(object item)
+
+        private string UpdateQueryDependedEntity(object objectInstance)
         {
-            foreach (var propertyInfo in item.GetType().GetProperties())
+            object relatedObject;
+            string stringQuery = "";
+            foreach (var propertyMainObjectInfo in objectInstance.GetType().GetProperties())
             {
-                if ((propertyInfo.GetCustomAttribute(typeof(FKRelationshipAttribute)) as FKRelationshipAttribute) != null)
+                Type oneToManyCaseTypeObject = propertyMainObjectInfo.PropertyType.GetElementType();
+                var t = propertyMainObjectInfo.PropertyType.GetElementType();
+                if (oneToManyCaseTypeObject != null && oneToManyCaseTypeObject.CustomAttributes.Any(attr => attr.AttributeType == typeof(TableDefinition)))
                 {
-                    return propertyInfo.GetValue(item);
+                    relatedObject = propertyMainObjectInfo.GetValue(objectInstance);
+                    stringQuery += OneToManyFkQueryData(objectInstance, relatedObject);
+                }
+                else if(propertyMainObjectInfo.PropertyType.CustomAttributes.Any(attr => attr.AttributeType == typeof(TableDefinition)) && !propertyMainObjectInfo.GetIndexParameters().Any())
+                {
+                    relatedObject = propertyMainObjectInfo.GetValue(objectInstance);
+                    stringQuery += OneToOneFkQueryData(objectInstance, relatedObject);
                 }
             }
-
-            return null;
+            return stringQuery;
         }
-        private Dictionary<string, object> GetFkValues(object nestedObjectInstance)
+
+        private string OneToOneFkQueryData(object principalEntity, object dependedEntity)
         {
-            Dictionary<string, object> containerFks = new();
-
-            FKRelationshipAttribute[] MyAttributes =
-                   (FKRelationshipAttribute[])Attribute.GetCustomAttributes(nestedObjectInstance.GetType(), typeof(FKRelationshipAttribute));
-
-            for (int i = 0; i < MyAttributes.Length; i++)
+            StringBuilder stringQuery = new();
+            string fkColumnTitle = dataSource.GetFkColumnTitleDependedEntity(principalEntity,dependedEntity);
+            if(fkColumnTitle==null)
             {
-                if (RelationKeyContainer.Any(attr => attr.Key.GetType() == MyAttributes[i].ForeignKeyType))
+                fkColumnTitle = dataSource.GetFkColumnTitleDependedEntity(dependedEntity, principalEntity);
+                return OneToOneFkQueryData(dependedEntity, principalEntity);
+            }
+            var pkPrincipalEntity = dataSource.GetPrimaryKeyValue(principalEntity);
+            string tableName = dataSource.GetTableName(dependedEntity.GetType());
+
+            Dictionary<string, object> queryPreparer = dataSource.GetDataForInsertQuery(dependedEntity);
+            queryPreparer.Add(fkColumnTitle, pkPrincipalEntity);
+
+            string setQueryContainer = string.Join(", ",
+ queryPreparer.Zip(queryPreparer, (tableField, tableData) => tableField.Key + " = " + tableData.Value));
+
+
+            stringQuery.Append($"UPDATE {tableName} " +
+            $"SET {setQueryContainer} " +
+            $"WHERE {dataSource.GetPkField(dependedEntity.GetType())} = {dataSource.GetObjectId(dependedEntity)} ");
+            return stringQuery.ToString();
+        }
+
+        private string OneToManyFkQueryData(object principalEntity, object dependedEntity)
+        {
+            StringBuilder stringQuery = new();
+            if (dependedEntity.GetType().IsArray || dependedEntity.GetType() is IEnumerable)
+            {
+                var array = dependedEntity as IEnumerable;
+
+                foreach (var arrayItem in array)
                 {
-                    containerFks.Add(MyAttributes[i].ColumnTitle, RelationKeyContainer.FirstOrDefault(fkObject => fkObject.Key.GetType() == MyAttributes[i].ForeignKeyType).Value);
+                    string fkColumnTitle = dataSource.GetFkColumnTitleDependedEntity(principalEntity, arrayItem);
+                    var pkPrincipalEntity = dataSource.GetPrimaryKeyValue(principalEntity);
+                    string tableName = dataSource.GetTableName(arrayItem.GetType());
+
+                    Dictionary<string, object> queryPreparer = dataSource.GetDataForInsertQuery(arrayItem);
+                    queryPreparer.Add(fkColumnTitle, pkPrincipalEntity);
+
+                    string setQueryContainer = string.Join(", ",
+         queryPreparer.Zip(queryPreparer, (tableField, tableData) => tableField.Key + " = " + tableData.Value));
+
+                    stringQuery.Append($"UPDATE {tableName} " +
+                    $"SET {setQueryContainer} " +
+                    $"WHERE {dataSource.GetPkField(arrayItem.GetType())} = {dataSource.GetObjectId(arrayItem)} ");
                 }
             }
-
-
-            foreach (var propertyInfo in nestedObjectInstance.GetType().GetProperties())
-            {
-                if ((propertyInfo.GetCustomAttribute(typeof(FKRelationshipAttribute)) as FKRelationshipAttribute) != null)
-                {
-                    var currentFk = propertyInfo.GetCustomAttribute(typeof(FKRelationshipAttribute)) as FKRelationshipAttribute;
-                    if (RelationKeyContainer!=null && RelationKeyContainer.Any(attr => attr.Key.GetType() == currentFk.ForeignKeyType))
-                    {
-                        containerFks.Add(currentFk.ColumnTitle, RelationKeyContainer.FirstOrDefault(fkObject => fkObject.Key.GetType() == currentFk.ForeignKeyType).Value);
-                    }
-                }
-            }
-            return containerFks;
+            return stringQuery.ToString();
         }
 
         public string Include(T item, Type joinedType)

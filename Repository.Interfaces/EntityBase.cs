@@ -4,10 +4,8 @@ using System.Text;
 
 namespace GameLibrary
 {
-
-     public interface EntityBase
-     {
+    public interface EntityBase
+    {
         public int ID { get; set; }
-
-     }
+    }
 }

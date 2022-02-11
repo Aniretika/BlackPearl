@@ -88,11 +88,30 @@ namespace Repository.Interfaces
 
         public T Include(T item, Type joinedType)
         {
-            //WHERE DATAREADER IS IT???
             SqlCommand query = new SqlCommand(sqlCommandBuilder.Include(item,joinedType));
-            
-            int number = query.ExecuteNonQuery();
-            return item;
+
+            using (SqlDataReader reader = query.ExecuteReader())
+            {
+                var y = reader.GetType();
+                if (reader.HasRows)
+                {
+                    while (reader.Read())
+                    {
+                        string typeInheritanceClass = "";
+                        try
+                        {
+                            typeInheritanceClass = reader.GetValue(reader.GetOrdinal("Discriptor")).ToString();
+                            return MapDataToBusinessEntity(reader, typeInheritanceClass);
+                        }
+                        catch
+                        {
+                            return MapDataToBusinessEntity(reader, "");
+                        }
+                    }
+                }
+            }
+            //return not excecced value
+            return (T)Activator.CreateInstance(typeof(T));
         }
 
         public T GetItem(int id)
@@ -123,23 +142,46 @@ namespace Repository.Interfaces
             return (T)Activator.CreateInstance(typeof(T));
         }
 
-        private static string ConvertDBNamingToBusinessEntity(string dbFieldNameByIndex, T item)
+        private static string ConvertDBNamingToBusinessEntity(string dbFieldName, T item)
         {
-            if (item.GetType().GetCustomAttributes().Any(currentAttribute=> currentAttribute
-            .GetType()==typeof(PKRelationshipAttribute)))
+            foreach (var propertyInfo in item.GetType().GetProperties())
             {
-
+                if ((propertyInfo.GetCustomAttribute(typeof(PKRelationshipAttribute)) as PKRelationshipAttribute) != null)
+                {
+                    if ((propertyInfo.GetCustomAttribute(typeof(PKRelationshipAttribute)) as PKRelationshipAttribute) != null)
+                    {
+                        var pkAtrtribute = propertyInfo.GetCustomAttribute(typeof(PKRelationshipAttribute)) as PKRelationshipAttribute;
+                        if (pkAtrtribute.ColumnTitle == dbFieldName)
+                        {
+                            return nameof(propertyInfo);
+                        }
+                    }
+                }
+                else if ((propertyInfo.GetCustomAttribute(typeof(FKRelationshipAttribute)) as FKRelationshipAttribute) != null)
+                {
+                    if ((propertyInfo.GetCustomAttribute(typeof(FKRelationshipAttribute)) as FKRelationshipAttribute) != null)
+                    {
+                        var pkAtrtribute = propertyInfo.GetCustomAttribute(typeof(FKRelationshipAttribute)) as FKRelationshipAttribute;
+                        if (pkAtrtribute.ColumnTitle == dbFieldName)
+                        {
+                            return nameof(propertyInfo);
+                        }
+                    }
+                }
+                else if ((propertyInfo.GetCustomAttribute(typeof(ColumnDefinition)) as ColumnDefinition) != null)
+                {
+                    if ((propertyInfo.GetCustomAttribute(typeof(ColumnDefinition)) as ColumnDefinition) != null)
+                    {
+                        var pkAtrtribute = propertyInfo.GetCustomAttribute(typeof(ColumnDefinition)) as ColumnDefinition;
+                        if (pkAtrtribute.ColumnTitle == dbFieldName)
+                        {
+                            return nameof(propertyInfo);
+                        }
+                    }
+                }
             }
-            else if(item.GetType().GetCustomAttributes().Any(currentAttribute => currentAttribute
-            .GetType() == typeof(FKRelationshipAttribute)))
-            {
 
-            }
-            else if (item.GetType().GetCustomAttributes().Any(currentAttribute => currentAttribute
-             .GetType() == typeof(ColumnDefinition)))
-            {
-
-            }
+           
             return "";
         }
 
@@ -160,33 +202,84 @@ namespace Repository.Interfaces
                 var newGeneratedObjectReference = Activator.CreateInstance(assemblyName, businessEntityType.FullName.ToString());
                 newObject = newGeneratedObjectReference.Unwrap() as T;
             }
-          
-            Hashtable hashtable = new Hashtable();
-            PropertyInfo[] properties = businessEntityType.GetProperties();
-            foreach (PropertyInfo info in properties)
-            {
-                hashtable[info.Name.ToUpper()] = info;
-            }
+
+            //Hashtable hashtable = new Hashtable();
+            //PropertyInfo[] properties = businessEntityType.GetProperties();
+            //foreach (PropertyInfo info in properties)
+            //{
+            //    if (!info.GetIndexParameters().Any())
+            //    {
+            //        hashtable[info.Name.ToUpper()] = info;
+            //    }
+            //}
+
+            //for (int indexField = 0; indexField < dr.FieldCount; indexField++)
+            //{
+            //    //column title matching with data layer
+
+            //    var t = dr.GetName(indexField);
+            // ConvertDBNamingToBusinessEntity(t, newObject);
+            //    PropertyInfo info = (PropertyInfo)
+            //                        hashtable[dr.GetName(indexField).ToUpper()];
+            //    if ((info != null) && info.CanWrite)
+            //    {
+            //        info.SetValue(newObject, dr.GetValue(indexField), null);
+            //    }
+            //    else if ((info != null) && info.CustomAttributes.Any(u => u.AttributeType == typeof(FKRelationshipAttribute)))
+            //    {
+            //        info.SetValue(newObject, dr.GetValue(indexField));
+            //    }
+            //}
+            //return newObject;
+            PropertyInfo[] properties = newObject.GetType().GetProperties();
             for (int indexField = 0; indexField < dr.FieldCount; indexField++)
             {
-                //column title matching with data layer
+                
 
-                var t = dr.GetName(indexField);
-                ConvertDBNamingToBusinessEntity(t, newObject);
-                PropertyInfo info = (PropertyInfo)
-                                    hashtable[dr.GetName(indexField).ToUpper()];
-                if ((info != null) && info.CanWrite)
+                foreach (PropertyInfo property in properties)
                 {
-                    info.SetValue(newObject, dr.GetValue(indexField), null);
-                }
-                else if ((info != null) && info.CustomAttributes.Any(u => u.AttributeType == typeof(PKRelationshipAttribute)))
-                {
-                    info.SetValue(newObject, dr.GetValue(indexField));
+                    try
+                    {
+                        string dbFieldName = ConvertBLLDataToDb(property);
+                        var value = dr[dbFieldName];
+                        if (value != null)
+                            property.SetValue(newObject, Convert.ChangeType(value, property.PropertyType));
+                    }
+                    catch { }
                 }
             }
             return newObject;
         }
+        private static string ConvertBLLDataToDb(PropertyInfo property)
+        {
 
+                if ((property.GetCustomAttribute(typeof(PKRelationshipAttribute)) as PKRelationshipAttribute) != null)
+                {
+                    if ((property.GetCustomAttribute(typeof(PKRelationshipAttribute)) as PKRelationshipAttribute) != null)
+                    {
+                        var pkAtrtribute = property.GetCustomAttribute(typeof(PKRelationshipAttribute)) as PKRelationshipAttribute;
+
+                        return pkAtrtribute.ColumnTitle;
+                    }
+                }
+                else if ((property.GetCustomAttribute(typeof(FKRelationshipAttribute)) as FKRelationshipAttribute) != null)
+                {
+                    if ((property.GetCustomAttribute(typeof(FKRelationshipAttribute)) as FKRelationshipAttribute) != null)
+                    {
+                        var fkAtrtribute = property.GetCustomAttribute(typeof(FKRelationshipAttribute)) as FKRelationshipAttribute;
+                        return fkAtrtribute.ColumnTitle;
+                    }
+                }
+                else if ((property.GetCustomAttribute(typeof(ColumnDefinition)) as ColumnDefinition) != null)
+                {
+                    if ((property.GetCustomAttribute(typeof(ColumnDefinition)) as ColumnDefinition) != null)
+                    {
+                        var columnAtrtribute = property.GetCustomAttribute(typeof(ColumnDefinition)) as ColumnDefinition;
+                        return columnAtrtribute.ColumnTitle;
+                    }
+            }
+            return null;
+        }
         //public async Task<int> UpdateAsync(T item)
         //{
         //    SqlCommand query = new SqlCommand(sqlCommandBuilder.Update(item));
