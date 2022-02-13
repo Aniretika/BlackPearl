@@ -78,12 +78,14 @@ namespace BlackPearl
                 //Field newField = unitOfWork.GetRepository<Field>().GetById(2);
                 //Ship newHybrid = unitOfWork.GetRepository<Ship>().GetById(1);
                 field[Quadrant.First, 3, 1].ID = 252;
+                field.ID = 5;
                 var coordinate = unitOfWork.GetRepository<Coordinate>().Include(field[Quadrant.First, 3, 1], hybrid.GetType());
 
 
 
+                //var ourField = unitOfWork.GetRepository<Field>().Include(field, field[Quadrant.First, 3, 1].GetType());
                 //Console.WriteLine($"{newField}");
-               // Console.WriteLine($"{coordinate}");
+                // Console.WriteLine($"{coordinate}");
 
                 System.Console.Read();
                 //unitOfWork.GetRepository<Ship>().Add(repairer);

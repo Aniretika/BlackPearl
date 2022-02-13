@@ -27,12 +27,10 @@ namespace Repository.Interfaces.SqlCommandBuilder
     public class SqlCommandBuilder<T> where T : IEntityBase
     {
         private DataSourceTransormation<T> dataSource = new DataSourceTransormation<T>();
-        // Dictionary where object 1 - pk type, object 2 - pk value
-        private Dictionary<object, object> RelationKeyContainer { get; set; }
         public string Insert(object item) => InsertQueryPreparer(InsertWrapper, item);
         public string Update(object item) => UpdateQueryPreparer(UpdateWrapper, item);
        
-        private string InsertQueryPreparer(Func<object, string> queryWrapper, object obj)//func
+        private string InsertQueryPreparer(Func<object, string> queryWrapper, object obj)
         {
             StringBuilder stringQuery = new StringBuilder();
 
@@ -42,7 +40,7 @@ namespace Repository.Interfaces.SqlCommandBuilder
             return stringQuery.ToString();
         }
 
-        private string UpdateQueryPreparer(Func<object, string> queryWrapper, object obj)//func
+        private string UpdateQueryPreparer(Func<object, string> queryWrapper, object obj)
         {
             StringBuilder stringQuery = new StringBuilder();
 
@@ -153,23 +151,24 @@ namespace Repository.Interfaces.SqlCommandBuilder
 
         public string Include(T item, Type joinedType)
         {
-            //joinrelationchecker
-
-                string itemPrincipalTable = dataSource.GetTableName() + "_joined";
-                string joinedTypeTable = dataSource.GetTableName(joinedType.GetType()) + "_joined";
-                string primaryKeyJoinedTable = dataSource.GetPkField(joinedType.GetType());
-                string foreignKeyMainTable = dataSource.GetFkField(item.GetType(), joinedType.GetType());
-
+            if (JoinRelationChecker(item, joinedType))
+            {
                 string stringQuery =
-                    $"SELECT * FROM {dataSource.GetTableName()} AS {itemPrincipalTable} " +
-                    $"WHERE {dataSource.GetPkField()} = {dataSource.GetObjectId(item)} ";
+                   $"SELECT * FROM {dataSource.GetTableName()}" +
+                   $"WHERE {dataSource.GetPkField()} = {dataSource.GetObjectId(item)} ";
                 return stringQuery;
-            //else
-            //{
-            //    throw new NotImplementedException();
-            //}
+            }
+            else
+            {
+                throw new Exception("Join relation cannot executed, becase of lack of relation keys.");
+            }
         }
+        public string FindByFk(int id, string fkField)
+        {
+            string stringQuery = $"SELECT * FROM {dataSource.GetTableName()} WHERE {fkField} = {id}";
 
+            return stringQuery;
+        }
         public string FindById(int id)
         {
             string stringQuery = $"SELECT * FROM {dataSource.GetTableName()} WHERE {dataSource.GetPkField()} = {id}";
@@ -195,16 +194,6 @@ namespace Repository.Interfaces.SqlCommandBuilder
             }
             return keyAttribute.ForeignKeyType == joinedType.GetType();
         }
-
-
-        //public bool JoinRelationChecker(T item)
-        //{
-        //    Type type = item.GetType();
-        //    var fkMainTableChecker = type.GetProperties().Where(
-        //        prop => Attribute.IsDefined(prop, typeof(MyForeignKeyAttribute)));
-
-        //    return fkMainTableChecker != null;
-        //}
 
     }
 }

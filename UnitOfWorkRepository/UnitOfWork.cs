@@ -13,7 +13,7 @@ namespace UnitOfWorkRepository
     {
         public SqlConnection Context { get; set; }
         public SqlTransaction Transaction { get; set; } 
-        private bool _disposedValue = false; // To detect redundant calls  
+        private bool _disposedValue = false;
 
         public Dictionary<Type, object> Repositories;
        
@@ -24,7 +24,9 @@ namespace UnitOfWorkRepository
             try
             {
                 Context.Open();
+                Transaction = Context.BeginTransaction();
                 Repositories = new Dictionary<Type, object>();
+                
                 Console.WriteLine("Connection was executed");
             }
             catch
@@ -33,7 +35,6 @@ namespace UnitOfWorkRepository
             }
                
         }
-        
 
         protected virtual void Dispose(bool disposing)
         {
@@ -43,9 +44,6 @@ namespace UnitOfWorkRepository
             {
                 Context.Close();
             }
-
-            // free unmanaged resources (unmanaged objects) and override a finalizer below.  
-            // set large fields to null.  
 
             _disposedValue = true;
         }
@@ -59,7 +57,7 @@ namespace UnitOfWorkRepository
             if (Repositories.Keys.Contains(typeof(TEntity)))
                 return Repositories[typeof(TEntity)] as IRepository<TEntity>;
 
-            var repository = new ReposiroryPattern<TEntity>(this.Context/*, Transaction*/);
+            var repository = new ReposiroryPattern<TEntity>(this.Context, Transaction);
             Repositories.Add(typeof(TEntity), repository);
             return repository;
         }
