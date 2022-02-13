@@ -24,7 +24,7 @@ namespace Repository.Interfaces.SqlCommandBuilder
         }
     }
 
-    public class SqlCommandBuilder<T> where T : class
+    public class SqlCommandBuilder<T> where T : IEntityBase
     {
         private DataSourceTransormation<T> dataSource = new DataSourceTransormation<T>();
         // Dictionary where object 1 - pk type, object 2 - pk value
@@ -153,23 +153,21 @@ namespace Repository.Interfaces.SqlCommandBuilder
 
         public string Include(T item, Type joinedType)
         {
-            if (JoinRelationChecker(item, joinedType))
-            {
-                string itemJoinedTable = dataSource.GetTableName() + "_joined";
-                string joinedTypeTable = dataSource.GetTableName(joinedType) + "_joined";
-                string foreignKeyJoinedTable = dataSource.GetFkField(joinedType);
-                string primaryKeyMainTable = dataSource.GetPkField();
+            //joinrelationchecker
+
+                string itemPrincipalTable = dataSource.GetTableName() + "_joined";
+                string joinedTypeTable = dataSource.GetTableName(joinedType.GetType()) + "_joined";
+                string primaryKeyJoinedTable = dataSource.GetPkField(joinedType.GetType());
+                string foreignKeyMainTable = dataSource.GetFkField(item.GetType(), joinedType.GetType());
+
                 string stringQuery =
-                    $"SELECT * FROM {dataSource.GetTableName()} AS {itemJoinedTable} " +
-                    $"JOIN {dataSource.GetTableName(joinedType)} AS {joinedTypeTable} " +
-                    $"ON {itemJoinedTable}.{primaryKeyMainTable} = {joinedTypeTable}.{foreignKeyJoinedTable} " +
-                    $"WHERE {itemJoinedTable}.{primaryKeyMainTable} = {dataSource.GetObjectId(item)}";
+                    $"SELECT * FROM {dataSource.GetTableName()} AS {itemPrincipalTable} " +
+                    $"WHERE {dataSource.GetPkField()} = {dataSource.GetObjectId(item)} ";
                 return stringQuery;
-            }
-            else
-            {
-                throw new NotImplementedException();
-            }
+            //else
+            //{
+            //    throw new NotImplementedException();
+            //}
         }
 
         public string FindById(int id)
@@ -186,16 +184,16 @@ namespace Repository.Interfaces.SqlCommandBuilder
             return stringQuery;
         }
 
-        private static bool JoinRelationChecker(T item, Type joinedType)
+        private static bool JoinRelationChecker(T item, object joinedType)
         {
             var properties = item.GetType().GetProperties();
-            FKRelationshipAttribute keyAttribute = new FKRelationshipAttribute(joinedType);
+            FKRelationshipAttribute keyAttribute = new FKRelationshipAttribute(joinedType.GetType());
             foreach (var propertyInfo in properties)
             {
                 keyAttribute = propertyInfo.GetCustomAttribute(typeof(FKRelationshipAttribute)) as FKRelationshipAttribute;
 
             }
-            return keyAttribute.ForeignKeyType == joinedType;
+            return keyAttribute.ForeignKeyType == joinedType.GetType();
         }
 
 

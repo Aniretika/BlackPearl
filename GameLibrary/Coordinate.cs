@@ -3,7 +3,7 @@
 namespace GameLibrary
 {
     [TableDefinition(ColumnTitle = "Coordinate")]
-    public class Coordinate : EntityBase
+    public class Coordinate : IEntityBase
     {
         public Coordinate()
         {
@@ -31,7 +31,7 @@ namespace GameLibrary
 
         [FKRelationship(typeof(Field), ColumnTitle = "Field_id")]
         public int? FieldID { get; set; }
-        [NavigationProperty]
+       
         public Ship Ship { get; set; }
 
         [ColumnDefinition(ColumnTitle = "IsHeadOfTheShip")]

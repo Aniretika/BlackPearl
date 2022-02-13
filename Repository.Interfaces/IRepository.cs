@@ -7,7 +7,7 @@ using GameLibrary;
 
 namespace Repository.Interfaces
 {
-    public interface IRepository<T> where T : class
+    public interface IRepository<T> where T : IEntityBase
     {
         //Task<int> AddAsync(T item);
         //Task<int> UpdateAsync(T item);
@@ -16,8 +16,8 @@ namespace Repository.Interfaces
         int Update(T item);
         int Delete(int id);
         int Figach();
-        T GetItem(int id);
-        T Include(T item, Type joinedType);
+        T GetById(int id);
+        T Include(T item, Type joinedInstance);
     }
 
 }

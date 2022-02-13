@@ -47,37 +47,43 @@ namespace BlackPearl
             using (var unitOfWork = new UnitOfWork
                 (@"Data Source=.\SOROKASQL;" +
                 "Initial Catalog=SeaFight;" +
-                "User ID=SuperUser; Integrated Security=true"))
+                "User ID=SuperUser; Integrated Security=true; MultipleActiveResultSets=True;"))
             {
                 Field field = new Field(8, 8);
 
-                unitOfWork.GetRepository<Field>().Figach();
-                field.ID = unitOfWork.GetRepository<Field>().Add(field);
+                //unitOfWork.GetRepository<Field>().Figach();
+                //field.ID = unitOfWork.GetRepository<Field>().Add(field);
 
-                for (int column = 0; column < field.Width; column++)
-                {
-                    for (int row = 0; row < field.Height; row++)
-                    {
-                        field.CoordinateField[row, column].ID =
-                            unitOfWork.GetRepository<Coordinate>().Add(field.CoordinateField[row, column]);
-                    }
-                }
+                //for (int column = 0; column < field.Width; column++)
+                //{
+                //    for (int row = 0; row < field.Height; row++)
+                //    {
+                //        field.CoordinateField[row, column].ID =
+                //            unitOfWork.GetRepository<Coordinate>().Add(field.CoordinateField[row, column]);
+                //    }
+                //}
 
                 field.SetShip(Quadrant.First, 3, 1, hybrid, Direction.Down);
-                hybrid.ID = unitOfWork.GetRepository<Ship>().Add(hybrid);
+                //hybrid.ID = unitOfWork.GetRepository<Ship>().Add(hybrid);
                 
 
-                unitOfWork.GetRepository<Field>().Update(field);
+                //unitOfWork.GetRepository<Field>().Update(field);
                 hybrid.FieldID = field.ID;//include
-                unitOfWork.GetRepository<Ship>().Update(hybrid);
-               
+                                          //unitOfWork.GetRepository<Ship>().Update(hybrid);
 
-                unitOfWork.GetRepository<Coordinate>().Update(field[Quadrant.First, 3, 1]);
 
-                unitOfWork.GetRepository<Ship>().Include(hybrid, field.GetType());
-                Field newField = unitOfWork.GetRepository<Field>().GetItem(field.ID);
+                //unitOfWork.GetRepository<Coordinate>().Update(field[Quadrant.First, 3, 1]);
 
-                Console.WriteLine($"{newField}");
+                //var coordinateNew = unitOfWork.GetRepository<Coordinate>().GetById(59);
+                //Field newField = unitOfWork.GetRepository<Field>().GetById(2);
+                //Ship newHybrid = unitOfWork.GetRepository<Ship>().GetById(1);
+                field[Quadrant.First, 3, 1].ID = 252;
+                var coordinate = unitOfWork.GetRepository<Coordinate>().Include(field[Quadrant.First, 3, 1], hybrid.GetType());
+
+
+
+                //Console.WriteLine($"{newField}");
+               // Console.WriteLine($"{coordinate}");
 
                 System.Console.Read();
                 //unitOfWork.GetRepository<Ship>().Add(repairer);

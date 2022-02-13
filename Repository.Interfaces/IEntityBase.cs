@@ -4,7 +4,7 @@ using System.Text;
 
 namespace GameLibrary
 {
-    public interface EntityBase
+    public interface IEntityBase
     {
         public int ID { get; set; }
     }

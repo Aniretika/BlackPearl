@@ -1,4 +1,5 @@
-﻿using Repository.Interfaces;
+﻿using GameLibrary;
+using Repository.Interfaces;
 using System;
 using System.Collections.Generic;
 using System.Data.SqlClient;
@@ -53,12 +54,12 @@ namespace UnitOfWorkRepository
             Dispose(true);
             GC.SuppressFinalize(this);
         }
-        public IRepository<TEntity> GetRepository<TEntity>() where TEntity : class
+        public IRepository<TEntity> GetRepository<TEntity>() where TEntity : IEntityBase
         {
             if (Repositories.Keys.Contains(typeof(TEntity)))
                 return Repositories[typeof(TEntity)] as IRepository<TEntity>;
 
-            var repository = new ReposiroryPattern<TEntity>(this.Context, Transaction);
+            var repository = new ReposiroryPattern<TEntity>(this.Context/*, Transaction*/);
             Repositories.Add(typeof(TEntity), repository);
             return repository;
         }

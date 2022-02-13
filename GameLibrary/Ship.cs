@@ -5,7 +5,7 @@ using MyAttriubutes;
 namespace GameLibrary
 {
     [TableDefinition(ColumnTitle = "Ship")]
-    public abstract class Ship : EntityBase
+    public abstract class Ship : IEntityBase
     {
         public Ship() { }
 

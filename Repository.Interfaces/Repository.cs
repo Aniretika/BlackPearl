@@ -15,7 +15,7 @@ using System.Collections;
 
 namespace Repository.Interfaces
 {
-    public class ReposiroryPattern<T> : IRepository<T> where T : class
+    public class ReposiroryPattern<T> : IRepository<T> where T : IEntityBase
     {
         private SqlConnection Context;
         private SqlTransaction Transaction;
@@ -25,10 +25,10 @@ namespace Repository.Interfaces
         public ReposiroryPattern()
         {
         }
-        public ReposiroryPattern(SqlConnection context, SqlTransaction transaction)
+        public ReposiroryPattern(SqlConnection context/*, SqlTransaction transaction*/)
         {
             this.Context = context;
-            this.Transaction = transaction;
+            //this.Transaction = transaction;
         }
 
         //Use Task-based asynchronous pattern
@@ -40,7 +40,7 @@ namespace Repository.Interfaces
         //public async Task<int> AddAsync(T item)
         //{
         //    SqlCommand query = new(sqlCommandBuilder.Insert(item), Context);
-           
+
         //    int number = await query.ExecuteNonQueryAsync();
         //    Console.WriteLine($"Insert {number} rows");
         //    return number;
@@ -88,57 +88,95 @@ namespace Repository.Interfaces
 
         public T Include(T item, Type joinedType)
         {
-            SqlCommand query = new SqlCommand(sqlCommandBuilder.Include(item,joinedType));
+            SqlCommand query = new SqlCommand(sqlCommandBuilder.Include(item, joinedType), Context);
 
-            using (SqlDataReader reader = query.ExecuteReader())
+
+            using (SqlDataReader includeReader = query.ExecuteReader())
             {
-                var y = reader.GetType();
-                if (reader.HasRows)
+                var y = includeReader.GetType();
+                if (includeReader.HasRows)
                 {
-                    while (reader.Read())
+                    while (includeReader.Read())
                     {
                         string typeInheritanceClass = "";
-                        try
+                        object ourId = null;
+                        //typeInheritanceClass = reader.GetValue(reader.GetOrdinal("Discriptor")).ToString();
+                        var mappedInstance = MapDataToBusinessEntity(includeReader, "");
+                        var createdInstance = GetNewObject(mappedInstance, joinedType, includeReader);
+                        //var id = createdInstance.GetType().GetProperties().Where(predicate)
+                        foreach (var propertyInfo in createdInstance.GetType().GetProperties())
                         {
-                            typeInheritanceClass = reader.GetValue(reader.GetOrdinal("Discriptor")).ToString();
-                            return MapDataToBusinessEntity(reader, typeInheritanceClass);
-                        }
-                        catch
-                        {
-                            return MapDataToBusinessEntity(reader, "");
+                            if (propertyInfo.PropertyType == joinedType || joinedType.IsAssignableTo(propertyInfo.PropertyType))
+                            {
+                                Type constructedType = typeof(ReposiroryPattern<>).MakeGenericType(joinedType.BaseType);
+
+                                object x = Activator.CreateInstance(constructedType /*, new object[] { }*/);
+                                ConstructorInfo ctorInstance = x.GetType().GetConstructor(new[] { Context.GetType()/*, Transaction.GetType()*/ });
+                                object generatedInstance = ctorInstance.Invoke(new object[] { Context });
+                                var method = generatedInstance.GetType().GetMethod("GetById");
+                                //reader.Close();
+                                foreach (var property in createdInstance.GetType().GetProperties())
+                                {
+                                    if ((property.GetCustomAttribute(typeof(FKRelationshipAttribute)) as FKRelationshipAttribute) != null)
+                                    {
+                                        var attribute = property.GetCustomAttribute(typeof(FKRelationshipAttribute)) as FKRelationshipAttribute;
+                                        if ((propertyInfo.PropertyType == joinedType || joinedType.IsAssignableTo(propertyInfo.PropertyType)) &&
+                                                (joinedType == attribute.ForeignKeyType || joinedType.BaseType == attribute.ForeignKeyType))
+                                        {
+                                            ourId = property.GetValue(createdInstance);
+                                        }
+                                    }
+                                }
+                                includeReader.Close();
+                                var res = method.Invoke(generatedInstance, new object[] { ourId });
+                                foreach (var property in createdInstance.GetType().GetProperties())
+                                {
+                                    if (property.PropertyType == res.GetType() || property.PropertyType== res.GetType().BaseType)
+                                    {
+                                        property.SetValue(createdInstance, res);
+                                    }
+                                }
+                                Console.WriteLine();
+                            }
                         }
                     }
                 }
+                //includeReader.Close();
             }
             //return not excecced value
             return (T)Activator.CreateInstance(typeof(T));
         }
 
-        public T GetItem(int id)
+        public T GetById(int id)
         {
             SqlCommand query = new(sqlCommandBuilder.FindById(id), Context);
 
-            using (SqlDataReader reader = query.ExecuteReader())
+            SqlDataReader reader = query.ExecuteReader();
+            var y = reader.GetType();
+            if (reader.HasRows)
             {
-                var y = reader.GetType();
-                if (reader.HasRows)
+                while (reader.Read())
                 {
-                    while (reader.Read())
+                    string typeInheritanceClass = "";
+                    try
                     {
-                        string typeInheritanceClass = "";
-                        try
-                        {
-                            typeInheritanceClass = reader.GetValue(reader.GetOrdinal("Discriptor")).ToString();
-                            return MapDataToBusinessEntity(reader, typeInheritanceClass);
-                        }
-                        catch
-                        {
-                            return MapDataToBusinessEntity(reader, "");
-                        }
+                        var dicriptor = reader.GetOrdinal("Discriptor");
+                        typeInheritanceClass = reader.GetValue(dicriptor).ToString();
+
+                        var newEntity = MapDataToBusinessEntity(reader, typeInheritanceClass);
+                        //reader.Close();
+                        return GetInstance(newEntity, reader);
+                    }
+                    catch
+                    {
+                        var newEntity = MapDataToBusinessEntity(reader, "");
+                        //reader.Close();
+                        return GetInstance(newEntity, reader);
                     }
                 }
-            }
-            //return not excecced value
+            }  
+            Console.WriteLine();
+            reader.Close();
             return (T)Activator.CreateInstance(typeof(T));
         }
 
@@ -181,7 +219,7 @@ namespace Repository.Interfaces
                 }
             }
 
-           
+
             return "";
         }
 
@@ -191,92 +229,100 @@ namespace Repository.Interfaces
             string assemblyName = businessEntityType.Assembly.GetName().Name;
             string fullNameInheritanceClass = $"{businessEntityType.Namespace.ToString()}.{typeInheritanceClass}";
             T newObject;
-            // T newObject = CreateNewEntity(Type businessEntityType);
+
             if (businessEntityType.IsAbstract)
             {
                 var newGeneratedObjectReference = Activator.CreateInstance(assemblyName, fullNameInheritanceClass);
-                newObject = newGeneratedObjectReference.Unwrap() as T;
+                newObject = (T)newGeneratedObjectReference.Unwrap();
             }
             else
             {
                 var newGeneratedObjectReference = Activator.CreateInstance(assemblyName, businessEntityType.FullName.ToString());
-                newObject = newGeneratedObjectReference.Unwrap() as T;
-            }
-
-            //Hashtable hashtable = new Hashtable();
-            //PropertyInfo[] properties = businessEntityType.GetProperties();
-            //foreach (PropertyInfo info in properties)
-            //{
-            //    if (!info.GetIndexParameters().Any())
-            //    {
-            //        hashtable[info.Name.ToUpper()] = info;
-            //    }
-            //}
-
-            //for (int indexField = 0; indexField < dr.FieldCount; indexField++)
-            //{
-            //    //column title matching with data layer
-
-            //    var t = dr.GetName(indexField);
-            // ConvertDBNamingToBusinessEntity(t, newObject);
-            //    PropertyInfo info = (PropertyInfo)
-            //                        hashtable[dr.GetName(indexField).ToUpper()];
-            //    if ((info != null) && info.CanWrite)
-            //    {
-            //        info.SetValue(newObject, dr.GetValue(indexField), null);
-            //    }
-            //    else if ((info != null) && info.CustomAttributes.Any(u => u.AttributeType == typeof(FKRelationshipAttribute)))
-            //    {
-            //        info.SetValue(newObject, dr.GetValue(indexField));
-            //    }
-            //}
-            //return newObject;
-            PropertyInfo[] properties = newObject.GetType().GetProperties();
-            for (int indexField = 0; indexField < dr.FieldCount; indexField++)
-            {
-                
-
-                foreach (PropertyInfo property in properties)
-                {
-                    try
-                    {
-                        string dbFieldName = ConvertBLLDataToDb(property);
-                        var value = dr[dbFieldName];
-                        if (value != null)
-                            property.SetValue(newObject, Convert.ChangeType(value, property.PropertyType));
-                    }
-                    catch { }
-                }
+                newObject = (T)newGeneratedObjectReference.Unwrap();
             }
             return newObject;
+
         }
-        private static string ConvertBLLDataToDb(PropertyInfo property)
+
+        private static T GetInstance(object newObject, IDataReader dr)
         {
+            PropertyInfo[] properties = newObject.GetType().GetProperties();
 
-                if ((property.GetCustomAttribute(typeof(PKRelationshipAttribute)) as PKRelationshipAttribute) != null)
+            foreach (PropertyInfo property in properties)
+            {
+                try
                 {
-                    if ((property.GetCustomAttribute(typeof(PKRelationshipAttribute)) as PKRelationshipAttribute) != null)
-                    {
-                        var pkAtrtribute = property.GetCustomAttribute(typeof(PKRelationshipAttribute)) as PKRelationshipAttribute;
+                    string dbFieldName = ConvertBLLDataToDb(property);
+                    var value = dr[dbFieldName];
+                    if (value != null)
+                        property.SetValue(newObject, value);
+                }
+                catch { }
 
-                        return pkAtrtribute.ColumnTitle;
+            }
+            return (T)newObject;
+        }
+
+        private static T GetNewObject(IEntityBase createdInstance, Type joinedInstance, IDataReader dr)
+        {
+            List<int> fkCollection = new();
+            PropertyInfo[] properties = createdInstance.GetType().GetProperties();
+            foreach (PropertyInfo property in properties)
+            {
+                try
+                {
+                    string dbFieldName = ConvertBLLDataToDb(property);
+                    var propertyValue = dr[dbFieldName];
+                    if (propertyValue != null)
+                    {
+                        property.SetValue(createdInstance, propertyValue);
                     }
                 }
-                else if ((property.GetCustomAttribute(typeof(FKRelationshipAttribute)) as FKRelationshipAttribute) != null)
+                catch { }
+
+            }
+                
+                foreach (var property in properties)
                 {
                     if ((property.GetCustomAttribute(typeof(FKRelationshipAttribute)) as FKRelationshipAttribute) != null)
                     {
-                        var fkAtrtribute = property.GetCustomAttribute(typeof(FKRelationshipAttribute)) as FKRelationshipAttribute;
-                        return fkAtrtribute.ColumnTitle;
+                        var attribute = property.GetCustomAttribute(typeof(FKRelationshipAttribute)) as FKRelationshipAttribute;
+                        //fkCollection.Add(property);
                     }
                 }
-                else if ((property.GetCustomAttribute(typeof(ColumnDefinition)) as ColumnDefinition) != null)
+            
+            Console.WriteLine();
+            return (T)createdInstance;
+        }
+       
+
+
+        private static string ConvertBLLDataToDb(PropertyInfo property)
+        {
+            if ((property.GetCustomAttribute(typeof(PKRelationshipAttribute)) as PKRelationshipAttribute) != null)
+            {
+                if ((property.GetCustomAttribute(typeof(PKRelationshipAttribute)) as PKRelationshipAttribute) != null)
                 {
-                    if ((property.GetCustomAttribute(typeof(ColumnDefinition)) as ColumnDefinition) != null)
-                    {
-                        var columnAtrtribute = property.GetCustomAttribute(typeof(ColumnDefinition)) as ColumnDefinition;
-                        return columnAtrtribute.ColumnTitle;
-                    }
+                    var pkAtrtribute = property.GetCustomAttribute(typeof(PKRelationshipAttribute)) as PKRelationshipAttribute;
+
+                    return pkAtrtribute.ColumnTitle;
+                }
+            }
+            else if ((property.GetCustomAttribute(typeof(FKRelationshipAttribute)) as FKRelationshipAttribute) != null)
+            {
+                if ((property.GetCustomAttribute(typeof(FKRelationshipAttribute)) as FKRelationshipAttribute) != null)
+                {
+                    var fkAtrtribute = property.GetCustomAttribute(typeof(FKRelationshipAttribute)) as FKRelationshipAttribute;
+                    return fkAtrtribute.ColumnTitle;
+                }
+            }
+            else if ((property.GetCustomAttribute(typeof(ColumnDefinition)) as ColumnDefinition) != null)
+            {
+                if ((property.GetCustomAttribute(typeof(ColumnDefinition)) as ColumnDefinition) != null)
+                {
+                    var columnAtrtribute = property.GetCustomAttribute(typeof(ColumnDefinition)) as ColumnDefinition;
+                    return columnAtrtribute.ColumnTitle;
+                }
             }
             return null;
         }
