@@ -31,19 +31,6 @@ namespace BlackPearl
 
             //field.SetShip(Quadrant.Fourth, 0, 2, repairer1, Direction.Down);
 
-
-            //string connectionString = @"Data Source =.\SOROKASQL; " +
-            //    "Initial Catalog=SeaFight;" +
-            //    "User ID=SuperUser; Integrated Security=true";
-
-            //string sqlExpression = "INSERT INTO Field(Field_id, Width, Height) VALUES(5, 10, 10)";
-            //using (SqlConnection connection = new SqlConnection(connectionString))
-            //{
-            //    connection.Open();
-            //    SqlCommand command = new SqlCommand(sqlExpression, connection);
-            //    command.ExecuteNonQuery();
-            //}
-
             using (var unitOfWork = new UnitOfWork
                 (@"Data Source=.\SOROKASQL;" +
                 "Initial Catalog=SeaFight;" +
@@ -51,42 +38,42 @@ namespace BlackPearl
             {
                 Field field = new Field(8, 8);
 
-                field.ID = unitOfWork.GetRepository<Field>().Add(field);
+                //field.ID = unitOfWork.GetRepository<Field>().Add(field);
 
-                for (int column = 0; column < field.Width; column++)
-                {
-                    for (int row = 0; row < field.Height; row++)
-                    {
-                        field.CoordinateField[row, column].ID =
-                            unitOfWork.GetRepository<Coordinate>().Add(field.CoordinateField[row, column]);
-                    }
-                }
+                //for (int column = 0; column < field.Width; column++)
+                //{
+                //    for (int row = 0; row < field.Height; row++)
+                //    {
+                //        field.CoordinateField[row, column].ID =
+                //            unitOfWork.GetRepository<Coordinate>().Add(field.CoordinateField[row, column]);
+                //    }
+                //}
 
                 field.SetShip(Quadrant.First, 3, 1, hybrid, Direction.Down);
-                hybrid.ID = unitOfWork.GetRepository<Ship>().Add(hybrid);
+                //hybrid.ID = unitOfWork.GetRepository<Ship>().Add(hybrid);
 
 
-                unitOfWork.GetRepository<Field>().Update(field);
-                hybrid.FieldID = field.ID;
-                unitOfWork.GetRepository<Ship>().Update(hybrid);
+                //unitOfWork.GetRepository<Field>().Update(field);
+                //hybrid.FieldID = field.ID;
+                //unitOfWork.GetRepository<Ship>().Update(hybrid);
 
 
-                unitOfWork.GetRepository<Coordinate>().Update(field[Quadrant.First, 3, 1]);
+                //unitOfWork.GetRepository<Coordinate>().Update(field[Quadrant.First, 3, 1]);
 
-                var coordinateNew = unitOfWork.GetRepository<Coordinate>().GetById(field[Quadrant.First, 1, 1].ID);
-                Field newField = unitOfWork.GetRepository<Field>().GetById(field.ID);
-                Ship newHybrid = unitOfWork.GetRepository<Ship>().GetById(hybrid.ID);
+                //var coordinateNew = unitOfWork.GetRepository<Coordinate>().GetById(field[Quadrant.First, 1, 1].ID);
+                //Field newField = unitOfWork.GetRepository<Field>().GetById(field.ID);
+                //Ship newHybrid = unitOfWork.GetRepository<Ship>().GetById(hybrid.ID);
 
-                var coordinate = unitOfWork.GetRepository<Coordinate>().Include(field[Quadrant.First, 3, 1], hybrid.GetType());
+                var coordinate = unitOfWork.GetRepository<Coordinate>().Include(field[Quadrant.First, 3, 1], field.GetType());
 
-                Console.WriteLine($"{newField}");
-                Console.WriteLine($"{coordinate}");
+                //Console.WriteLine($"{newField}");
+                //Console.WriteLine($"{coordinate}");
 
-                System.Console.Read();
-                unitOfWork.GetRepository<Ship>().Add(repairer);
-                unitOfWork.GetRepository<Ship>().Delete(1);
-                System.Console.WriteLine(field.FieldCondition());
-                System.Console.WriteLine(field.ToString());
+                //System.Console.Read();
+                //unitOfWork.GetRepository<Ship>().Add(repairer);
+                //unitOfWork.GetRepository<Ship>().Delete(1);
+                //System.Console.WriteLine(field.FieldCondition());
+                //System.Console.WriteLine(field.ToString());
             }
 
 

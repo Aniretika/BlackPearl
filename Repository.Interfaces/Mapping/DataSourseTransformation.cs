@@ -127,11 +127,10 @@ namespace Repository.Interfaces.Mapping
         {
             foreach (var propertyInfo in itemType.GetProperties())
             {
-                if ((propertyInfo.GetCustomAttribute(typeof(PKRelationshipAttribute)) as PKRelationshipAttribute) != null)
+                PKRelationshipAttribute primaryKeyAttribute = validations.CurrentPropertyPkAttribute(propertyInfo);
+                if (primaryKeyAttribute != null)
                 {
-                    var pkAttribute = propertyInfo.GetCustomAttribute(typeof(PKRelationshipAttribute)) as PKRelationshipAttribute;
-
-                    return pkAttribute.ColumnTitle;
+                    return primaryKeyAttribute.ColumnTitle;
                 }
             }
             return null;
@@ -142,11 +141,10 @@ namespace Repository.Interfaces.Mapping
             var itemType = typeof(T);
             foreach (var propertyInfo in itemType.GetProperties())
             {
-                if ((propertyInfo.GetCustomAttribute(typeof(PKRelationshipAttribute)) as PKRelationshipAttribute) != null)
+                PKRelationshipAttribute primaryKeyAttribute = validations.CurrentPropertyPkAttribute(propertyInfo);
+                if (primaryKeyAttribute != null)
                 {
-                    var pkAttribute = propertyInfo.GetCustomAttribute(typeof(PKRelationshipAttribute)) as PKRelationshipAttribute;
-
-                    return pkAttribute.ColumnTitle;
+                    return primaryKeyAttribute.ColumnTitle;
                 }
             }
             return null;
