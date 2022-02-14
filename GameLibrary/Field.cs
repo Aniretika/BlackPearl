@@ -21,7 +21,7 @@ namespace GameLibrary
 
         [ColumnDefinition(ColumnTitle = "Height")]
         public int Height { get; private set; }
-        [NavigationProperty]
+
         public Coordinate[,] CoordinateField { get; private set; }
 
         [PKRelationship(ColumnTitle = "Field_id")]

@@ -12,7 +12,7 @@ namespace UnitOfWorkRepository
     public class UnitOfWork: IUnitOfWork
     {
         public SqlConnection Context { get; set; }
-        public SqlTransaction Transaction { get; set; } 
+       // public SqlTransaction Transaction { get; set; } 
         private bool _disposedValue = false;
 
         public Dictionary<Type, object> Repositories;
@@ -24,7 +24,7 @@ namespace UnitOfWorkRepository
             try
             {
                 Context.Open();
-                Transaction = Context.BeginTransaction();
+                //Transaction = Context.BeginTransaction();
                 Repositories = new Dictionary<Type, object>();
                 
                 Console.WriteLine("Connection was executed");
@@ -57,7 +57,7 @@ namespace UnitOfWorkRepository
             if (Repositories.Keys.Contains(typeof(TEntity)))
                 return Repositories[typeof(TEntity)] as IRepository<TEntity>;
 
-            var repository = new ReposiroryPattern<TEntity>(this.Context, Transaction);
+            var repository = new ReposiroryPattern<TEntity>(this.Context/*, Transaction*/);
             Repositories.Add(typeof(TEntity), repository);
             return repository;
         }

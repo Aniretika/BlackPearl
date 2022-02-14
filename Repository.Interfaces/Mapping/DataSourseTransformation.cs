@@ -1,18 +1,16 @@
 ﻿using GameLibrary;
 using MyAttriubutes;
+using RepositoryInterfaces.SqlCommandBuilder;
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
-using System.Linq.Expressions;
 using System.Reflection;
-using System.Text;
 
 namespace Repository.Interfaces.Mapping
 {
-    //Checks and generate join relation
     public class DataSourceTransormation<T> where T : IEntityBase
     {
+        private Validations validations = new();
         public DataSourceTransormation() { }
         public Dictionary<string, object> GetDataForInsertQuery(object mainInstance)
         {
@@ -20,18 +18,18 @@ namespace Repository.Interfaces.Mapping
            
             foreach (var propertyInfo in mainInstance.GetType().GetProperties())
             {
-                if ((propertyInfo.GetCustomAttribute(typeof(ColumnDefinition)) as ColumnDefinition) != null)
-                {
-                    var columnAttribute = propertyInfo.GetCustomAttribute(typeof(ColumnDefinition)) as ColumnDefinition;
+                var columnAttribute = validations.CurrentPropertyColumnAttribute(propertyInfo);
+                if (columnAttribute != null)
+                {   
                     string attributeTitle = columnAttribute.ColumnTitle.ToString();
-                    dataQuery = dataQuery.Concat(ConvertDataBLLToDb(propertyInfo, mainInstance, attributeTitle))
+                    dataQuery = dataQuery.Concat(ConvertBusinessLogicDataToDatabase(propertyInfo, mainInstance, attributeTitle))
                      .ToDictionary(x => x.Key, x => x.Value);
                 }
                 else if ((propertyInfo.GetCustomAttribute(typeof(FKRelationshipAttribute)) as FKRelationshipAttribute) != null)
                 {
                     var fkAttribute = propertyInfo.GetCustomAttribute(typeof(FKRelationshipAttribute)) as FKRelationshipAttribute;
                     string attributeTitle = fkAttribute.ColumnTitle.ToString();
-                    dataQuery = dataQuery.Concat(ConvertDataBLLToDb(propertyInfo, mainInstance, attributeTitle))
+                    dataQuery = dataQuery.Concat(ConvertBusinessLogicDataToDatabase(propertyInfo, mainInstance, attributeTitle))
                        .ToDictionary(x => x.Key, x => x.Value);
                 }
             }
@@ -42,7 +40,7 @@ namespace Repository.Interfaces.Mapping
             return dataQuery;
         }
 
-        private Dictionary<string, object> ConvertDataBLLToDb(PropertyInfo propertyInfo, object objectInstance, string attributeTitle)
+        private Dictionary<string, object> ConvertBusinessLogicDataToDatabase(PropertyInfo propertyInfo, object objectInstance, string attributeTitle)
         {
             var dataQuery = new Dictionary<string, object>();
 
@@ -67,7 +65,6 @@ namespace Repository.Interfaces.Mapping
 
         public string GetFkColumnTitleDependedEntity(object principalEntity, object dependedEntity)
         {
-
             FKRelationshipAttribute fkAttribute = null;
             foreach (var propertyInfo in dependedEntity.GetType().GetProperties())
             {
@@ -94,8 +91,7 @@ namespace Repository.Interfaces.Mapping
             return null;
         }
 
-
-public object GetPrimaryKeyValue(object objectInstance)
+        public object GetPrimaryKeyValue(object objectInstance)
         {
             foreach (var propertyInfo in objectInstance.GetType().GetProperties())
             {
@@ -105,45 +101,6 @@ public object GetPrimaryKeyValue(object objectInstance)
                 }
             }
             return null;
-        }
-
-
-        public object GetObjectByFk(object item)
-        {
-            if ((item.GetType().GetCustomAttribute(typeof(FKRelationshipAttribute)) as FKRelationshipAttribute) != null)
-            {
-                var fkAttribute = item.GetType().GetCustomAttribute(typeof(FKRelationshipAttribute)) as FKRelationshipAttribute;
-                foreach (var relatedInstanceProperty in item.GetType().GetProperties())
-                {
-                    if (relatedInstanceProperty.GetType() == fkAttribute.ForeignKeyType
-                        || relatedInstanceProperty.GetType().GetElementType() == fkAttribute.ForeignKeyType)
-                    {
-                        return relatedInstanceProperty;
-                        //var instanceId = RelationIdentifier(relatedInstanceProperty);
-                        //if (instanceId != null)
-                        //    dataQuery.Add(fkAttribute.ColumnTitle, instanceId);
-                    }
-                }
-            }
-
-            return null;
-        }
-
-        public Dictionary<object, object> GetPksDataQuery(object objectInstance)
-        {
-            // object of pk`s master, object - pk value
-            var fksContainer = new Dictionary<object, object>();
-
-            foreach (var propertyInfo in objectInstance.GetType().GetProperties())
-            {
-                if ((propertyInfo.GetCustomAttribute(typeof(PKRelationshipAttribute)) as PKRelationshipAttribute) != null)
-                {
-                    //var pkAttribute = propertyInfo.GetCustomAttribute(typeof(PKRelationshipAttribute)) as PKRelationshipAttribute;
-                   
-                    fksContainer.Add(objectInstance, propertyInfo.GetValue(objectInstance).ToString());
-                }
-            }
-            return fksContainer;
         }
 
         public string GetTableName(Type type)
@@ -207,40 +164,6 @@ public object GetPrimaryKeyValue(object objectInstance)
                 }
             }
             return 0;
-        }
-        private string GetFKByPincipalEntity(Type principalEntity, Type joinedType)
-        {
-            foreach (var propertyInfo in principalEntity.GetProperties())
-            {
-                if ((propertyInfo.GetCustomAttribute(typeof(FKRelationshipAttribute)) as FKRelationshipAttribute) != null)
-                {
-                    FKRelationshipAttribute fkAttribute = propertyInfo.GetCustomAttribute(typeof(FKRelationshipAttribute)) as FKRelationshipAttribute;
-                    var attributeType = fkAttribute.ForeignKeyType;
-
-                    if (attributeType == joinedType || attributeType.IsAssignableFrom(joinedType))
-                    {
-                        return fkAttribute.ColumnTitle;
-                    }
-                }
-            }
-            return null;
-        }
-        public string GetFkField(Type principalEntity, Type joinedType)
-        {
-           try
-           {
-               string fkName = GetFKByPincipalEntity(principalEntity, joinedType);
-                if (fkName == null)
-                {
-                    fkName = GetFKByPincipalEntity(joinedType, principalEntity);
-                }
-                return fkName;
-           }
-            catch
-           {
-                throw new NotImplementedException();
-           }
-
         }
     }
 }

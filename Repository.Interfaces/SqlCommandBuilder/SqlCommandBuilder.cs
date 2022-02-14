@@ -1,50 +1,70 @@
-﻿using System;
+﻿using GameLibrary;
+using MyAttriubutes;
 using Repository.Interfaces.Mapping;
-using System.Data.Linq;
-using GameLibrary;
+using RepositoryInterfaces.SqlCommandBuilder;
+using System;
+using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 using System.Text;
-using System.Data.SqlClient;
-using System.Linq;
-using System.Threading.Tasks;
-using MyAttriubutes;
-using System.Linq.Expressions;
-using System.Collections;
-using Microsoft.VisualBasic.CompilerServices;
 
 namespace Repository.Interfaces.SqlCommandBuilder
 {
-    public static class ArrayExtensions
-    {
-        public static IEnumerable<T> ToEnumerable<T>(this Array target)
-        {
-            foreach (var item in target)
-                yield return (T)item;
-        }
-    }
 
     public class SqlCommandBuilder<T> where T : IEntityBase
     {
-        private DataSourceTransormation<T> dataSource = new DataSourceTransormation<T>();
-        public string Insert(object item) => InsertQueryPreparer(InsertWrapper, item);
-        public string Update(object item) => UpdateQueryPreparer(UpdateWrapper, item);
-       
-        private string InsertQueryPreparer(Func<object, string> queryWrapper, object obj)
+        private DataSourceTransormation<T> dataSource = new();
+        public Validations validations = new();
+
+        public string Insert(object itemToInsert) => InsertQueryPreparer(itemToInsert);
+
+        public string Update(object itemToUpdate) => UpdateQueryPreparer(itemToUpdate);
+
+        public string FindById(int id)
+        {
+            string stringQuery = $"SELECT * FROM {dataSource.GetTableName()} WHERE {dataSource.GetPkField()} = {id}";
+
+            return stringQuery;
+        }
+
+        public string Remove(int id)
+        {
+            string stringQuery = $"DELETE FROM {dataSource.GetTableName()} WHERE {dataSource.GetPkField()} = {id}";
+
+            return stringQuery;
+        }
+
+        public string Include(T item, Type joinedType)
+        {
+            if (JoinRelationChecker(item, joinedType))
+            {
+                string stringQuery =
+                   $"SELECT * FROM {dataSource.GetTableName()}" +
+                   $" WHERE {dataSource.GetPkField()} = {dataSource.GetObjectId(item)} ";
+                return stringQuery;
+            }
+            else
+            {
+                throw new Exception("Join relation cannot executed, becase of lack of relation keys.");
+            }
+        }
+
+        private string InsertQueryPreparer(object itemToInsert)
         {
             StringBuilder stringQuery = new StringBuilder();
 
-            stringQuery.Append(queryWrapper(obj));
+            stringQuery.Append(InsertWrapper(itemToInsert));
             stringQuery.Append(" SELECT SCOPE_IDENTITY() ");
 
             return stringQuery.ToString();
         }
 
-        private string UpdateQueryPreparer(Func<object, string> queryWrapper, object obj)
+        private string UpdateQueryPreparer(object itemToUpdate)
         {
             StringBuilder stringQuery = new StringBuilder();
 
-            stringQuery.Append(UpdateWrapper(obj));
+            stringQuery.Append(UpdateWrapper(itemToUpdate));
 
             return stringQuery.ToString();
         }  
@@ -86,26 +106,27 @@ namespace Repository.Interfaces.SqlCommandBuilder
                 if (oneToManyCaseTypeObject != null && oneToManyCaseTypeObject.CustomAttributes.Any(attr => attr.AttributeType == typeof(TableDefinition)))
                 {
                     relatedObject = propertyMainObjectInfo.GetValue(objectInstance);
-                    stringQuery += OneToManyFkQueryData(objectInstance, relatedObject);
+                    stringQuery += OneToManyRelationDataHandler(objectInstance, relatedObject);
                 }
                 else if(propertyMainObjectInfo.PropertyType.CustomAttributes.Any(attr => attr.AttributeType == typeof(TableDefinition)) && !propertyMainObjectInfo.GetIndexParameters().Any())
                 {
                     relatedObject = propertyMainObjectInfo.GetValue(objectInstance);
-                    stringQuery += OneToOneFkQueryData(objectInstance, relatedObject);
+                    stringQuery += OneToOneRelationDataHandler(objectInstance, relatedObject);
                 }
             }
             return stringQuery;
         }
 
-        private string OneToOneFkQueryData(object principalEntity, object dependedEntity)
+        private string OneToOneRelationDataHandler(object principalEntity, object dependedEntity)
         {
             StringBuilder stringQuery = new();
             string fkColumnTitle = dataSource.GetFkColumnTitleDependedEntity(principalEntity,dependedEntity);
-            if(fkColumnTitle==null)
+            if (fkColumnTitle == null)
             {
                 fkColumnTitle = dataSource.GetFkColumnTitleDependedEntity(dependedEntity, principalEntity);
-                return OneToOneFkQueryData(dependedEntity, principalEntity);
+                return OneToOneRelationDataHandler(dependedEntity, principalEntity);
             }
+
             var pkPrincipalEntity = dataSource.GetPrimaryKeyValue(principalEntity);
             string tableName = dataSource.GetTableName(dependedEntity.GetType());
 
@@ -122,7 +143,7 @@ namespace Repository.Interfaces.SqlCommandBuilder
             return stringQuery.ToString();
         }
 
-        private string OneToManyFkQueryData(object principalEntity, object dependedEntity)
+        private string OneToManyRelationDataHandler(object principalEntity, object dependedEntity)
         {
             StringBuilder stringQuery = new();
             if (dependedEntity.GetType().IsArray || dependedEntity.GetType() is IEnumerable)
@@ -149,51 +170,18 @@ namespace Repository.Interfaces.SqlCommandBuilder
             return stringQuery.ToString();
         }
 
-        public string Include(T item, Type joinedType)
+        private bool JoinRelationChecker(T item, Type joinedType)
         {
-            if (JoinRelationChecker(item, joinedType))
+            foreach (var propertyInfo in item.GetType().GetProperties())
             {
-                string stringQuery =
-                   $"SELECT * FROM {dataSource.GetTableName()}" +
-                   $"WHERE {dataSource.GetPkField()} = {dataSource.GetObjectId(item)} ";
-                return stringQuery;
+                if (validations.EntityHasForeignKey(propertyInfo, joinedType))
+                {
+                    return true;
+                }
             }
-            else
-            {
-                throw new Exception("Join relation cannot executed, becase of lack of relation keys.");
-            }
+           
+            return false;
         }
-        public string FindByFk(int id, string fkField)
-        {
-            string stringQuery = $"SELECT * FROM {dataSource.GetTableName()} WHERE {fkField} = {id}";
-
-            return stringQuery;
-        }
-        public string FindById(int id)
-        {
-            string stringQuery = $"SELECT * FROM {dataSource.GetTableName()} WHERE {dataSource.GetPkField()} = {id}";
-
-            return stringQuery;
-        }
-
-        public string Remove(int id)
-        {
-            string stringQuery = $"DELETE FROM {dataSource.GetTableName()} WHERE {dataSource.GetPkField()} = {id}";
-
-            return stringQuery;
-        }
-
-        private static bool JoinRelationChecker(T item, object joinedType)
-        {
-            var properties = item.GetType().GetProperties();
-            FKRelationshipAttribute keyAttribute = new FKRelationshipAttribute(joinedType.GetType());
-            foreach (var propertyInfo in properties)
-            {
-                keyAttribute = propertyInfo.GetCustomAttribute(typeof(FKRelationshipAttribute)) as FKRelationshipAttribute;
-
-            }
-            return keyAttribute.ForeignKeyType == joinedType.GetType();
-        }
-
+      
     }
 }
